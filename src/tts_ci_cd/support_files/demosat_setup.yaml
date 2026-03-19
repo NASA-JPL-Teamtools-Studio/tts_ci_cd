@@ -1,0 +1,80 @@
+# support_files/dev_setup.yaml
+
+# (Optional) You can define the default host here if you use something other than GitHub
+# git_host: "github.com" 
+
+# (Optional) You can define default extra index URLs for pip installations
+# extra_index_urls:
+#   - "https://pypi.internal.company.com/simple"
+#   - "https://pypi.org/simple"
+
+# This file defines repositories specific to the DemoSat project
+# It references repositories from the base manifest (dev_setup.yaml)
+
+demosat:
+  demosat_dict:
+    repo_path: "tts-demosat/demosat_dict"
+    branch: "develop"
+    dependencies: []
+
+  demosat_seqdb:
+    repo_path: "tts-demosat/demosat_seqdb"
+    branch: "develop"
+    dependencies: []
+
+  demosat_dictionary_interface:
+    repo_path: "tts-demosat/demosat_dictionary_interface"
+    branch: "develop"
+    dependencies:
+      - tts_dictionary_interface
+      - demosat_dict
+
+  demosat_plan:
+    repo_path: "tts-demosat/demosat_plan"
+    branch: "develop"
+    dependencies:
+      - tts_plan
+
+  demosat_seq:
+    repo_path: "tts-demosat/demosat_seq"
+    branch: "develop"
+    dependencies:
+      - tts_seq
+      - demosat_seqdb
+      - demosat_dictionary_interface
+
+  demosat_fresh:
+    repo_path: "tts-demosat/demosat_fresh"
+    branch: "develop"
+    dependencies:
+      - tts_fresh
+      - demosat_seq
+    
+  demosat_data_utils:
+    repo_path: "tts-demosat/demosat_data_utils"
+    branch: "develop"
+    dependencies:
+      - tts_data_utils
+
+  demosat_tower:
+    repo_path: "tts-demosat/demosat_tower"
+    branch: "develop"
+    dependencies:
+      - tts_tower
+      - demosat_fresh
+      - demosat_data_utils
+
+  demosat_dante:
+    repo_path: "tts-demosat/demosat_dante"
+    branch: "develop"
+    dependencies:
+      - tts_dante
+      - demosat_data_utils
+
+  demosat_dexter:
+    repo_path: "tts-demosat/demosat_dexter"
+    branch: "develop"
+    dependencies:
+      - tts_dexter
+      - demosat_data_utils
+

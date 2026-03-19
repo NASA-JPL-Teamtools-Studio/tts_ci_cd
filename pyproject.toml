@@ -1,0 +1,60 @@
+[project]
+name = "tts-ci-cd"
+description = "CI/CD helpers for TTS."
+readme = "README.md"
+requires-python = ">=3.6"
+license = {text = "Unlicense"}
+authors = [
+  { name = "muszynsk", email = "matt.muszynski@jpl.nasa.gov" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Unlicense",
+]
+dependencies = [
+  "setuptools_scm",
+  "gitpython",
+  "jupyterlab",
+  "pytest", 
+  "pytest-html",
+  "tomli", 
+  "ipywidgets",
+  "anywidget",
+  "tts-papertrail",
+  "pyyaml",
+  "sphinx", 
+  "sphinx-rtd-theme", 
+  "pydata-sphinx-theme",
+  "myst-parser", 
+  "jinja2",
+  "packaging",
+  "docker",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/NASA-JPL-Teamtools-Studio/tts_ci_cd"
+
+[project.scripts]
+tts-git-dashboard = "tts_ci_cd.git_dashboard:main"
+tts-dependency-audit = "tts_ci_cd.dependency_audit:audit_libraries"
+tts-dev-setup = "tts_ci_cd.dev_setup:main"
+tts-demosat-dev-setup = "tts_ci_cd.demosat_dev_setup:main"
+tts-doc-builder = "tts_ci_cd.doc_builder:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+
+[build-system]
+requires = [
+  "setuptools", 
+  "wheel", 
+  "toml", 
+  "tts-utilities>=0.2.1,<1.0.0", 
+  "setuptools-scm"
+  ]
+build-backend = "setuptools.build_meta"
