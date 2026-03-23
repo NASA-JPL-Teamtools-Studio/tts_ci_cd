@@ -40,16 +40,16 @@ class DemoSatDev(DevSetup):
         self.load_additional_manifest(manifest_path)
         
         # Keep track of loaded manifests
-        if 'manifest_files' not in self.manifest_data:
-            self.manifest_data['manifest_files'] = []
-        self.manifest_data['manifest_files'].append(str(base_manifest_path))
-        self.manifest_data['manifest_files'].append(str(manifest_path))
+        if 'manifest_files' not in self.config:
+            self.config['manifest_files'] = []
+        self.config['manifest_files'].append(str(base_manifest_path))
+        self.config['manifest_files'].append(str(manifest_path))
         
         # Add any custom initialization here
-        self.custom_config = self.manifest_data.get('custom_config', {})
+        self.custom_config = self.config.get('custom_config', {})
         
         # Debug info
-        print(f"\n📚 Loaded manifests: {self.manifest_data['manifest_files']}")
+        print(f"\n📚 Loaded manifests: {self.config['manifest_files']}")
         print(f"📦 Available repositories: {list(self._all_repos.keys())}")
         
         # Print the repository groups

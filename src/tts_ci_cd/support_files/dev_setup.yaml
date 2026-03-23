@@ -10,81 +10,81 @@
 
 tts_core:
   tts_utilities:
-    repo_path: "teamtools-studio/tts_utilities" # Just the path!
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_utilities"
+    branch: "main"
     dependencies: []
 
   tts_html_utils:
-    repo_path: "teamtools-studio/tts_html_utils"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_html_utils"
+    branch: "main"
     dependencies:
       - tts_utilities
 
   tts_dictionary_interface:
-    repo_path: "teamtools-studio/tts_dictionary_interface"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_dictionary_interface"
+    branch: "main"
     dependencies:
       - tts_utilities
 
   tts_spice:
-    repo_path: "teamtools-studio/tts_spice"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_spice"
+    branch: "main"
     dependencies:
       - tts_utilities
       
   tts_dtat:
-    repo_path: "teamtools-studio/tts_dtat"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_dtat"
+    branch: "main"
     dependencies:
       - tts_utilities
 
   tts_papertrail:
-    repo_path: "teamtools-studio/tts_papertrail"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_papertrail"
+    branch: "main"
     dependencies:
       - tts_html_utils
 
   tts_plan:
-    repo_path: "teamtools-studio/tts_plan"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_plan"
+    branch: "main"
     dependencies:
       - tts_dictionary_interface
       - tts_spice
 
   tts_seq:
-    repo_path: "teamtools-studio/tts_seq"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_seq"
+    branch: "main"
     dependencies:
       - tts_dictionary_interface
       - tts_dtat
       - tts_spice
       
   tts_fresh:
-    repo_path: "teamtools-studio/tts_fresh"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_fresh"
+    branch: "main"
     dependencies:
       - tts_seq
             
   tts_tower:
-    repo_path: "teamtools-studio/tts_tower"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_tower"
+    branch: "main"
     dependencies:
       - tts_papertrail
 
   tts_data_utils:
-    repo_path: "teamtools-studio/tts_data_utils"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_data_utils"
+    branch: "main"
     dependencies:
       - tts_papertrail
 
   tts_dante:
-    repo_path: "teamtools-studio/tts_dante"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_dante"
+    branch: "main"
     dependencies:
       - tts_data_utils
 
   tts_dexter:
-    repo_path: "teamtools-studio/tts_dexter"
-    branch: "develop"
+    repo_path: "NASA-JPL-Teamtools-Studio/tts_dexter"
+    branch: "main"
     dependencies:
       - tts_data_utils

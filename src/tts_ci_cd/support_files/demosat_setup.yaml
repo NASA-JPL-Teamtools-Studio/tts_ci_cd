@@ -13,67 +13,67 @@
 
 demosat:
   demosat_dict:
-    repo_path: "tts-demosat/demosat_dict"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_dict"
+    branch: "main"
     dependencies: []
 
   demosat_seqdb:
-    repo_path: "tts-demosat/demosat_seqdb"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_seqdb"
+    branch: "main"
     dependencies: []
 
   demosat_dictionary_interface:
-    repo_path: "tts-demosat/demosat_dictionary_interface"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_dictionary_interface"
+    branch: "main"
     dependencies:
       - tts_dictionary_interface
       - demosat_dict
 
   demosat_plan:
-    repo_path: "tts-demosat/demosat_plan"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_plan"
+    branch: "main"
     dependencies:
       - tts_plan
 
   demosat_seq:
-    repo_path: "tts-demosat/demosat_seq"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_seq"
+    branch: "main"
     dependencies:
       - tts_seq
       - demosat_seqdb
       - demosat_dictionary_interface
 
   demosat_fresh:
-    repo_path: "tts-demosat/demosat_fresh"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_fresh"
+    branch: "main"
     dependencies:
       - tts_fresh
       - demosat_seq
     
   demosat_data_utils:
-    repo_path: "tts-demosat/demosat_data_utils"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_data_utils"
+    branch: "main"
     dependencies:
       - tts_data_utils
 
   demosat_tower:
-    repo_path: "tts-demosat/demosat_tower"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_tower"
+    branch: "main"
     dependencies:
       - tts_tower
       - demosat_fresh
       - demosat_data_utils
 
   demosat_dante:
-    repo_path: "tts-demosat/demosat_dante"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_dante"
+    branch: "main"
     dependencies:
       - tts_dante
       - demosat_data_utils
 
   demosat_dexter:
-    repo_path: "tts-demosat/demosat_dexter"
-    branch: "develop"
+    repo_path: "NASA-JPL-TTS-Demosat/demosat_dexter"
+    branch: "main"
     dependencies:
       - tts_dexter
       - demosat_data_utils
