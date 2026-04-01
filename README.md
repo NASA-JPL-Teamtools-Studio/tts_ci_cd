@@ -1,5 +1,5 @@
 # tts_ci_cd
-![Project logo](https://github.com/NASA-JPL-Teamtools-Studio/teamtools_documentation/blob/main/docs/images/tts_ci_cd.png)
+![Project logo](https://github.com/NASA-JPL-Teamtools-Studio/teamtools_documentation/blob/main/docs/images/tts_image_artifacts/tts_ci_cd.png)
 
 ## About Teamtools Studio
 
