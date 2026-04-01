@@ -1,0 +1,9 @@
+# ~/.tts_config/deployment_locations.yaml
+
+artifactory:
+  index1_name: "your-develop-index-here"
+  index2_name: "your-develop-index-here"
+
+auth:
+  artifactory_username: "your-pypi-username"
+  pypi_token: "pypi-your-token-string-here"
