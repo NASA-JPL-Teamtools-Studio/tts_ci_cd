@@ -36,4 +36,4 @@ A number of command line tools are provided in this library.
 
 ## Configuration
 
-Some of the command line tools in this library (`tts-deploy-lib` and `tts-git-dashboard`) have an optional configuration file. It is used to include artifactory URLs and pypi keys that cannot be shared publically. An example is provided at (tts_config/README.md)[https://github.com/NASA-JPL-Teamtools-Studio/tts_ci_cd/blob/main/src/tts_ci_cd/tts_config/deploy_locations.yaml]
+Some of the command line tools in this library (`tts-deploy-lib` and `tts-git-dashboard`) have an optional configuration file. It is used to include artifactory URLs and pypi keys that cannot be shared publically. An example is provided at [tts_config/README.md](https://github.com/NASA-JPL-Teamtools-Studio/tts_ci_cd/blob/main/src/tts_ci_cd/tts_config/deploy_locations.yaml)
