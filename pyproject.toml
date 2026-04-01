@@ -41,6 +41,7 @@ tts-dependency-audit = "tts_ci_cd.dependency_audit:audit_libraries"
 tts-dev-setup = "tts_ci_cd.dev_setup:main"
 tts-demosat-dev-setup = "tts_ci_cd.demosat_dev_setup:main"
 tts-doc-builder = "tts_ci_cd.doc_builder:main"
+tts-deploy-lib = "tts_ci_cd.deploy_lib:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
