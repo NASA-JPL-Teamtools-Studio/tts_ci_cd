@@ -19,8 +19,6 @@ PYPI_URL = "https://upload.pypi.org/legacy/"
 def check_git_status(force=False):
     """Checks if the git repository has uncommitted changes."""
     try:
-        # --porcelain gives a stable, script-readable output. 
-        # If output is empty, the tree is clean.
         result = subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.STDOUT).decode("utf-8").strip()
         
         if result:
@@ -31,7 +29,6 @@ def check_git_status(force=False):
             else:
                 raise click.ClickException("Clean your git state before deploying or use --force.")
     except subprocess.CalledProcessError:
-        # Not a git repo, or git not installed
         click.echo("ℹ️  Note: Not a git repository or git not found. Skipping git check.")
 
 def load_global_config():
@@ -72,7 +69,7 @@ def build_package():
     except Exception as e:
         raise click.ClickException(f"Build failed: {e}")
 
-def upload_package(repo_url: str, is_pypi: bool = False, username=None, password=None):
+def upload_package(repo_url: str, is_pypi: bool = False, username=None, password=None, verbose=False):
     """Uses Twine's Python API to upload."""
     config = load_global_config()
     auth_defaults = config.get("auth", {})
@@ -90,18 +87,22 @@ def upload_package(repo_url: str, is_pypi: bool = False, username=None, password
     dist_files = [str(p) for p in Path("dist").glob("*") if p.is_file()]
     click.echo(f"🚀 Uploading to {repo_url} as {username}...")
 
+    # Set verbose logging if requested
     settings = Settings(
         repository_url=repo_url,
         username=username,
         password=password,
         non_interactive=True,
         disable_progress_bar=False,
-        keyring_privileged=False
+        keyring_privileged=False,
+        verbose=verbose  # Pass the verbose flag here
     )
 
     try:
         twine_upload(settings, dist_files)
-    except Exception:
+    except Exception as e:
+        if verbose:
+            click.echo(f"❌ Detailed Error: {e}")
         click.echo("\n❌ Upload failed.")
         raise click.Abort()
 
@@ -109,7 +110,8 @@ def upload_package(repo_url: str, is_pypi: bool = False, username=None, password
 @click.argument("environment", required=False)
 @click.option("--yes", is_flag=True, help="Skip confirmation prompts.")
 @click.option("--force", is_flag=True, help="Allow deployment even if git is dirty.")
-def main(environment, yes, force):
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output for build and upload.")
+def main(environment, yes, force, verbose):
     """Deployer for Artifactory and PyPI with Git safety checks."""
     config = load_global_config()
     artifactory_urls = config.get("artifactory", {})
@@ -119,11 +121,10 @@ def main(environment, yes, force):
         available_envs.append("all")
 
     if not environment:
-        click.echo(f"Usage: tts-deploy-lib [{'|'.join(available_envs)}]")
+        click.echo(f"Usage: tts-deploy-lib [{'|'.join(available_envs)}] [-v/--verbose]")
         return
 
     # --- 1. Git Safety Check ---
-    # We enforce a clean git unless --force is used
     check_git_status(force=force)
 
     name, version = load_project_info()
@@ -132,7 +133,7 @@ def main(environment, yes, force):
     if environment == "pypi":
         if yes or click.confirm(f"🚀 OFFICIAL PUBLIC RELEASE: {name} v{version}. Proceed?"):
             build_package()
-            upload_package(PYPI_URL, is_pypi=True)
+            upload_package(PYPI_URL, is_pypi=True, verbose=verbose)
 
     elif environment == "all" and artifactory_urls:
         auth_defaults = config.get("auth", {})
@@ -142,12 +143,12 @@ def main(environment, yes, force):
         build_package() 
         for env_name, url in artifactory_urls.items():
             click.echo(f"\n--- {env_name} ---")
-            upload_package(url, username=user, password=pwd)
+            upload_package(url, username=user, password=pwd, verbose=verbose)
 
     elif environment in artifactory_urls:
         url = artifactory_urls[environment]
         build_package()
-        upload_package(url)
+        upload_package(url, verbose=verbose)
         click.echo(f"✅ Deployment to {environment} successful.")
 
     else:
