@@ -1,9 +1,10 @@
 name: PR Multi-Version Tests
 
 on:
+  workflow_call:
   pull_request:
     branches: [ main ]
-    types: [opened, synchronize, reopened] 
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
