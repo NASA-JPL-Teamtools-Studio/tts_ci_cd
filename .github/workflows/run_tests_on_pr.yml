@@ -2,9 +2,14 @@ name: PR Multi-Version Tests
 
 on:
   workflow_call:
+    inputs:
+      package_name:
+        description: 'The import name of the Python package (e.g., tts_fresh)'
+        required: true
+        type: string
   pull_request:
     branches: [ main ]
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened] 
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -25,6 +30,8 @@ jobs:
     
     env:
       SETUPTOOLS_SCM_PRETEND_VERSION: "1.0.0.dev0"
+      # Uses the input if called from another repo, or defaults to tts_ci_cd for PRs on this repo itself
+      PACKAGE_NAME: ${{ inputs.package_name || 'tts_ci_cd' }}
 
     steps:
       - name: Checkout Code
@@ -46,7 +53,7 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install pytest pytest-html setuptools-scm
           pip install .
-          pytest --html=report-${{ matrix.python-version }}.html --self-contained-html
+          pytest --pyargs $PACKAGE_NAME --html=report-${{ matrix.python-version }}.html --self-contained-html
 
       # ---- 2. LEGACY PYTHON HANDLING (3.6 and 3.7) ----
       - name: Test Legacy Python in Docker
@@ -56,6 +63,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/app" \
             -w /app \
             -e SETUPTOOLS_SCM_PRETEND_VERSION="1.0.0.dev0" \
+            -e PACKAGE_NAME="$PACKAGE_NAME" \
             python:${{ matrix.python-version }}-slim \
             bash -c "
               apt-get update && apt-get install -y git && \
@@ -68,8 +76,9 @@ jobs:
                 pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0';
               fi && \
               pip install . && \
-              pytest --html=report-${{ matrix.python-version }}.html --self-contained-html
+              pytest --pyargs \$PACKAGE_NAME --html=report-${{ matrix.python-version }}.html --self-contained-html
             "
+          
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
 
       # ---- 3. UPLOAD REPORT ----
@@ -84,7 +93,6 @@ jobs:
       - name: Save Job Status
         if: always()
         run: |
-          # Write the version and job status to a text file
           echo "${{ matrix.python-version }}|${{ job.status }}" > status-${{ matrix.python-version }}.txt
 
       - name: Upload Job Status
@@ -117,7 +125,6 @@ jobs:
           echo "| Python Version | Status | Evidence |" >> pr_message.md
           echo "|---|---|---|" >> pr_message.md
 
-          # Sort the status files so the table is in version order (e.g., 3.9 before 3.10)
           for file in $(ls status-*.txt | sort -V); do
             IFS='|' read -r version status < "$file"
             if [ "$status" = "success" ]; then
