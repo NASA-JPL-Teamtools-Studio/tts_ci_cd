@@ -348,6 +348,15 @@ def cleanup_generated_docs(repo, repo_path, docs_dir):
 def build_all_versions(repo_path, docs_dir="docs", builder="html", push=False, check_dirty=True, force_theme=True, ignore_errors=True):
     repo_path = Path(repo_path)
     repo = Repo(repo_path)
+    for remote in repo.remotes:
+        remote.fetch()
+    for ref in repo.remotes.origin.refs:
+        if ref.name != 'origin/HEAD' and not ref.name.endswith('/gh-pages'):
+            branch_name = ref.name.replace('origin/', '')
+            if branch_name not in [b.name for b in repo.heads]:
+                repo.create_head(branch_name, ref)
+
+
     meta = get_project_metadata(repo_path)
     
     if check_dirty and repo.is_dirty():
