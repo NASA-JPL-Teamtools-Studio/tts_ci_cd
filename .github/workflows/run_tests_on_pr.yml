@@ -143,4 +143,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md --repo ${{ github.repository }}
