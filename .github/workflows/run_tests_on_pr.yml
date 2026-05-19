@@ -139,7 +139,8 @@ jobs:
           echo "" >> pr_message.md
           echo "- [View Full Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> pr_message.md
 
-      - name: Post Status Comment
-        uses: mshick/add-pr-comment@v2
-        with:
-          message-path: pr_message.md
+      - name: Post Status Comment via Native GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md
