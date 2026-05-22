@@ -77,18 +77,27 @@ jobs:
                 pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0';
               fi && \
               pip install . && \
-              pytest --pyargs \$PACKAGE_NAME --html=report-${{ matrix.python-version }}.html --self-contained-html
+          pytest --pyargs $PACKAGE_NAME \
+            --html=report-${{ matrix.python-version }}.html --self-contained-html \
+            --junitxml=results-${{ matrix.python-version }}.xml \
+            --cov=$PACKAGE_NAME \
+            --cov-report=term \
+            --cov-report=xml:coverage-${{ matrix.python-version }}.xml
             "
           
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
 
-      # ---- 3. UPLOAD REPORT ----
-      - name: Upload HTML Report
+      # ---- 3. UPLOAD REPORTS & DATA ----
+      - name: Upload Test and Coverage Data
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report-py${{ matrix.python-version }}
-          path: report-${{ matrix.python-version }}.html
+          name: test-artifacts-py${{ matrix.python-version }}
+          path: |
+            report-${{ matrix.python-version }}.html
+            results-${{ matrix.python-version }}.xml
+            coverage-${{ matrix.python-version }}.xml
+          retention-days: 90
 
       # ---- 4. SAVE STATUS FOR PR COMMENT ----
       - name: Save Job Status
