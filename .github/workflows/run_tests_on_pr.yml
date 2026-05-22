@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       package_name:
-        description: 'The import name of the Python package (e.g., tts_fresh)'
+        description: 'The import name of the Python package'
         required: true
         type: string
   pull_request:
@@ -32,6 +32,7 @@ jobs:
     
     env:
       SETUPTOOLS_SCM_PRETEND_VERSION: "1.0.0.dev0"
+      # Fallback to tts_ci_cd if input isn't provided
       PACKAGE_NAME: ${{ inputs.package_name || 'tts_ci_cd' }}
 
     steps:
@@ -40,6 +41,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      # ---- 1. MODERN PYTHON HANDLING (3.8 to 3.14) ----
       - name: Setup Modern Python
         if: matrix.python-version != '3.6' && matrix.python-version != '3.7'
         uses: actions/setup-python@v5
@@ -54,27 +56,27 @@ jobs:
           pip install pytest pytest-html pytest-cov setuptools-scm bandit pip-audit
           pip install .
           
-          mkdir -p artifacts/html artifacts/xml
+          mkdir -p artifacts/html artifacts/machine
           
-          # Bandit: Code Security
+          # Security Scanning
           bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true
-          bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true
+          bandit -r src/ -f xml -o artifacts/machine/security-results-${{ matrix.python-version }}.xml || true
           
-          # Pip Audit: Dependency Security
-          # We use || true so a vulnerability doesn't kill the whole test run before we can report it
-          pip-audit -f html -o artifacts/html/security-audit-${{ matrix.python-version }}.html || true
-          pip-audit -f json -o artifacts/xml/security-audit-${{ matrix.python-version }}.json || true
+          # Pip Audit to JSON then convert via your custom CLI
+          pip-audit -f json -o artifacts/machine/security-audit-${{ matrix.python-version }}.json || true
+          tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html
           
+          # Testing
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
-          
           pytest --pyargs $PACKAGE_NAME \
             --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
-            --junitxml=artifacts/xml/results-${{ matrix.python-version }}.xml \
+            --junitxml=artifacts/machine/results-${{ matrix.python-version }}.xml \
             --cov="$INSTALLED_PATH" \
             --cov-report=term \
-            --cov-report=xml:artifacts/xml/coverage-${{ matrix.python-version }}.xml \
+            --cov-report=xml:artifacts/machine/coverage-${{ matrix.python-version }}.xml \
             --cov-report=html:artifacts/html/coverage-html-${{ matrix.python-version }}
 
+      # ---- 2. LEGACY PYTHON HANDLING (3.6 and 3.7) ----
       - name: Test & Audit (Legacy)
         if: matrix.python-version == '3.6' || matrix.python-version == '3.7'
         run: |
@@ -87,7 +89,7 @@ jobs:
             bash -c "
               apt-get update && apt-get install -y git && \
               git config --global --add safe.directory /app && \
-              mkdir -p artifacts/html artifacts/xml && \
+              mkdir -p artifacts/html artifacts/machine && \
               if [ '${{ matrix.python-version }}' = '3.6' ]; then
                 pip install --upgrade 'pip<21.0' 'setuptools<60.0' wheel && \
                 pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0' 'bandit<1.7.3' 'pip-audit';
@@ -97,20 +99,21 @@ jobs:
               fi && \
               pip install . && \
               bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true && \
-              bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true && \
-              pip-audit -f html -o artifacts/html/security-audit-${{ matrix.python-version }}.html || true && \
-              pip-audit -f json -o artifacts/xml/security-audit-${{ matrix.python-version }}.json || true && \
+              bandit -r src/ -f xml -o artifacts/machine/security-results-${{ matrix.python-version }}.xml || true && \
+              pip-audit -f json -o artifacts/machine/security-audit-${{ matrix.python-version }}.json || true && \
+              tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html && \
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
                 --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
-                --junitxml=artifacts/xml/results-${{ matrix.python-version }}.xml \
+                --junitxml=artifacts/machine/results-${{ matrix.python-version }}.xml \
                 --cov=\"\$INSTALLED_PATH\" \
                 --cov-report=term \
-                --cov-report=xml:artifacts/xml/coverage-${{ matrix.python-version }}.xml \
+                --cov-report=xml:artifacts/machine/coverage-${{ matrix.python-version }}.xml \
                 --cov-report=html:artifacts/html/coverage-html-${{ matrix.python-version }}
             "
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
 
+      # ---- 3. UPLOAD ARTIFACTS ----
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,6 +122,7 @@ jobs:
           path: artifacts/
           retention-days: 1
 
+      # ---- 4. STATUS HANDLING ----
       - name: Save Job Status
         if: always()
         run: echo "${{ matrix.python-version }}|${{ job.status }}" > status-${{ matrix.python-version }}.txt
@@ -131,6 +135,7 @@ jobs:
           path: status-${{ matrix.python-version }}.txt
           retention-days: 1
 
+  # ---- 5. PR COMMENT AGGREGATION ----
   comment:
     name: Post PR Comment
     needs: test
@@ -162,6 +167,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ---- 6. DEPLOY TO PAGES ----
   publish-reports:
     name: Publish to gh-pages
     needs: test
