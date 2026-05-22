@@ -18,7 +18,7 @@ concurrency:
 
 permissions:
   pull-requests: write
-  contents: write # ⚠️ Upgraded to 'write' so the final job can push to the gh-pages branch
+  contents: write
 
 jobs:
   test:
@@ -27,7 +27,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Kept your full 3.6 to 3.14 matrix
         python-version: ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     
     env:
@@ -59,7 +58,8 @@ jobs:
             --junitxml=results-${{ matrix.python-version }}.xml \
             --cov=$PACKAGE_NAME \
             --cov-report=term \
-            --cov-report=xml:coverage-${{ matrix.python-version }}.xml
+            --cov-report=xml:coverage-${{ matrix.python-version }}.xml \
+            --cov-report=html:coverage-html-${{ matrix.python-version }}
 
       # ---- 2. LEGACY PYTHON HANDLING (3.6 and 3.7) ----
       - name: Test Legacy Python in Docker
@@ -87,7 +87,8 @@ jobs:
                 --junitxml=results-${{ matrix.python-version }}.xml \
                 --cov=\$PACKAGE_NAME \
                 --cov-report=term \
-                --cov-report=xml:coverage-${{ matrix.python-version }}.xml
+                --cov-report=xml:coverage-${{ matrix.python-version }}.xml \
+                --cov-report=html:coverage-html-${{ matrix.python-version }}
             "
           
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
@@ -102,7 +103,8 @@ jobs:
             report-${{ matrix.python-version }}.html
             results-${{ matrix.python-version }}.xml
             coverage-${{ matrix.python-version }}.xml
-          retention-days: 1 # Set to 1 to prevent storage bloat!
+            coverage-html-${{ matrix.python-version }}/
+          retention-days: 1
 
       # ---- 4. SAVE STATUS FOR PR COMMENT ----
       - name: Save Job Status
@@ -135,8 +137,8 @@ jobs:
         run: |
           echo "### 🧪 Python Multi-Version Test Results" > pr_message.md
           echo "" >> pr_message.md
-          echo "| Python Version | Status | Evidence |" >> pr_message.md
-          echo "|---|---|---|" >> pr_message.md
+          echo "| Python Version | Status | Test Report | Coverage Dashboard |" >> pr_message.md
+          echo "|---|---|---|---|" >> pr_message.md
 
           for file in $(ls status-*.txt | sort -V); do
             IFS='|' read -r version status < "$file"
@@ -146,8 +148,10 @@ jobs:
               icon="❌ Failed"
             fi
             
-            # Formats the link to point directly to the gh-pages deployment
-            echo "| **$version** | $icon | [View HTML Report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/report-$version.html) |" >> pr_message.md
+            # Base URL for GitHub Pages
+            base_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}"
+            
+            echo "| **$version** | $icon | [View Tests]($base_url/report-$version.html) | [View Coverage]($base_url/coverage-html-$version/index.html) |" >> pr_message.md
           done
 
           echo "" >> pr_message.md
@@ -182,7 +186,6 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "dest_dir=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
           else
-            # Handles 'push' to main or 'release'
             echo "dest_dir=main" >> $GITHUB_ENV
           fi
 
