@@ -47,18 +47,23 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - name: Test & Security Scan (Modern)
+      - name: Test & Audit (Modern)
         if: matrix.python-version != '3.6' && matrix.python-version != '3.7'
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install pytest pytest-html pytest-cov setuptools-scm bandit
+          pip install pytest pytest-html pytest-cov setuptools-scm bandit pip-audit
           pip install .
           
           mkdir -p artifacts/html artifacts/xml
           
-          # Bandit: Generate both HTML and XML
+          # Bandit: Code Security
           bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true
           bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true
+          
+          # Pip Audit: Dependency Security
+          # We use || true so a vulnerability doesn't kill the whole test run before we can report it
+          pip-audit -f html -o artifacts/html/security-audit-${{ matrix.python-version }}.html || true
+          pip-audit -f json -o artifacts/xml/security-audit-${{ matrix.python-version }}.json || true
           
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
           
@@ -70,7 +75,7 @@ jobs:
             --cov-report=xml:artifacts/xml/coverage-${{ matrix.python-version }}.xml \
             --cov-report=html:artifacts/html/coverage-html-${{ matrix.python-version }}
 
-      - name: Test & Security Scan (Legacy)
+      - name: Test & Audit (Legacy)
         if: matrix.python-version == '3.6' || matrix.python-version == '3.7'
         run: |
           docker run --rm \
@@ -85,14 +90,16 @@ jobs:
               mkdir -p artifacts/html artifacts/xml && \
               if [ '${{ matrix.python-version }}' = '3.6' ]; then
                 pip install --upgrade 'pip<21.0' 'setuptools<60.0' wheel && \
-                pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0' 'bandit<1.7.3';
+                pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0' 'bandit<1.7.3' 'pip-audit';
               else
                 pip install --upgrade 'pip<23.1' 'setuptools<60.0' wheel && \
-                pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0' 'pytest-cov<4.0' 'bandit<1.7.5';
+                pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0' 'pytest-cov<4.0' 'bandit<1.7.5' 'pip-audit';
               fi && \
               pip install . && \
               bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true && \
               bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true && \
+              pip-audit -f html -o artifacts/html/security-audit-${{ matrix.python-version }}.html || true && \
+              pip-audit -f json -o artifacts/xml/security-audit-${{ matrix.python-version }}.json || true && \
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
                 --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
@@ -140,15 +147,15 @@ jobs:
         run: |
           echo "### 🧪 Python CI/CD Results" > pr_message.md
           echo "" >> pr_message.md
-          echo "| Version | Status | Tests | Coverage | Security |" >> pr_message.md
-          echo "|---|---|---|---|---|" >> pr_message.md
+          echo "| Version | Status | Tests | Coverage | Security | Audit |" >> pr_message.md
+          echo "|---|---|---|---|---|---|" >> pr_message.md
 
           for file in $(ls status-*.txt | sort -V); do
             IFS='|' read -r version status < "$file"
             icon=$([ "$status" = "success" ] && echo "✅" || echo "❌")
             base_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/html"
             
-            echo "| **$version** | $icon | [Tests]($base_url/report-$version.html) | [Coverage]($base_url/coverage-html-$version/index.html) | [Security]($base_url/security-report-$version.html) |" >> pr_message.md
+            echo "| **$version** | $icon | [Tests]($base_url/report-$version.html) | [Coverage]($base_url/coverage-html-$version/index.html) | [Bandit]($base_url/security-report-$version.html) | [Audit]($base_url/security-audit-$version.html) |" >> pr_message.md
           done
           
           gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md --repo ${{ github.repository }}
