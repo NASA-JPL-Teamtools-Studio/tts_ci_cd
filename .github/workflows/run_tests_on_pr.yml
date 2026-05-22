@@ -47,13 +47,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - name: Test Modern Python
+      - name: Test & Security Scan (Modern)
         if: matrix.python-version != '3.6' && matrix.python-version != '3.7'
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install pytest pytest-html pytest-cov setuptools-scm
+          pip install pytest pytest-html pytest-cov setuptools-scm bandit
           pip install .
-          # Determine installed path to ensure coverage tracks the installed lib, not local src
+          
+          # Run Bandit Security Scan
+          bandit -r src/ -f html -o security-report-${{ matrix.python-version }}.html || true
+          
+          # Run Tests
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
           pytest --pyargs $PACKAGE_NAME \
             --html=report-${{ matrix.python-version }}.html --self-contained-html \
@@ -64,7 +68,7 @@ jobs:
             --cov-report=html:coverage-html-${{ matrix.python-version }}
 
       # ---- 2. LEGACY PYTHON HANDLING (3.6 and 3.7) ----
-      - name: Test Legacy Python in Docker
+      - name: Test & Security Scan (Legacy)
         if: matrix.python-version == '3.6' || matrix.python-version == '3.7'
         run: |
           docker run --rm \
@@ -78,13 +82,15 @@ jobs:
               git config --global --add safe.directory /app && \
               if [ '${{ matrix.python-version }}' = '3.6' ]; then
                 pip install --upgrade 'pip<21.0' 'setuptools<60.0' wheel && \
-                pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0';
+                pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0' 'bandit<1.7.3';
               else
                 pip install --upgrade 'pip<23.1' 'setuptools<60.0' wheel && \
-                pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0' 'pytest-cov<4.0';
+                pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0' 'pytest-cov<4.0' 'bandit<1.7.5';
               fi && \
               pip install . && \
-              # CRITICAL: Find where the lib was installed inside the container
+              # Run Bandit
+              bandit -r src/ -f html -o security-report-${{ matrix.python-version }}.html || true && \
+              # Run Tests
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
                 --html=report-${{ matrix.python-version }}.html --self-contained-html \
@@ -94,11 +100,10 @@ jobs:
                 --cov-report=xml:coverage-${{ matrix.python-version }}.xml \
                 --cov-report=html:coverage-html-${{ matrix.python-version }}
             "
-          
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
 
-      # ---- 3. UPLOAD REPORTS & DATA ----
-      - name: Upload Test and Coverage Data
+      # ---- 3. UPLOAD ALL ARTIFACTS ----
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -108,13 +113,13 @@ jobs:
             results-${{ matrix.python-version }}.xml
             coverage-${{ matrix.python-version }}.xml
             coverage-html-${{ matrix.python-version }}/
+            security-report-${{ matrix.python-version }}.html
           retention-days: 1
 
-      # ---- 4. SAVE STATUS FOR PR COMMENT ----
+      # ---- 4. JOB STATUS UPLOAD (Same as before) ----
       - name: Save Job Status
         if: always()
-        run: |
-          echo "${{ matrix.python-version }}|${{ job.status }}" > status-${{ matrix.python-version }}.txt
+        run: echo "${{ matrix.python-version }}|${{ job.status }}" > status-${{ matrix.python-version }}.txt
 
       - name: Upload Job Status
         if: always()
@@ -139,32 +144,22 @@ jobs:
 
       - name: Generate Markdown Table
         run: |
-          echo "### 🧪 Python Multi-Version Test Results" > pr_message.md
+          echo "### 🧪 Python CI/CD Results" > pr_message.md
           echo "" >> pr_message.md
-          echo "| Python Version | Status | Test Report | Coverage Dashboard |" >> pr_message.md
-          echo "|---|---|---|---|" >> pr_message.md
+          echo "| Version | Status | Tests | Coverage | Security |" >> pr_message.md
+          echo "|---|---|---|---|---|" >> pr_message.md
 
           for file in $(ls status-*.txt | sort -V); do
             IFS='|' read -r version status < "$file"
-            if [ "$status" = "success" ]; then
-              icon="✅ Passed"
-            else
-              icon="❌ Failed"
-            fi
-            
+            icon=$([ "$status" = "success" ] && echo "✅" || echo "❌")
             base_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}"
             
-            echo "| **$version** | $icon | [View Tests]($base_url/report-$version.html) | [View Coverage]($base_url/coverage-html-$version/index.html) |" >> pr_message.md
+            echo "| **$version** | $icon | [Tests]($base_url/report-$version.html) | [Coverage]($base_url/coverage-html-$version/index.html) | [Security]($base_url/security-report-$version.html) |" >> pr_message.md
           done
-
-          echo "" >> pr_message.md
-          echo "- [View Full Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> pr_message.md
-
-      - name: Post Status Comment via Native GitHub CLI
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_message.md --repo ${{ github.repository }}
 
   # ---- 6. PUBLISH TO GITHUB PAGES ----
   publish-reports:
@@ -178,28 +173,17 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Download Test Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: test-artifacts-py*
           path: incoming-reports
           merge-multiple: true
-
-      - name: Set Target Directory
-        id: paths
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "dest_dir=pr-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-          else
-            echo "dest_dir=main" >> $GITHUB_ENV
-          fi
-
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: gh-pages
           folder: incoming-reports
-          target-folder: ${{ env.dest_dir }}
+          target-folder: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'main' }}
           clean: false
           single-commit: true
