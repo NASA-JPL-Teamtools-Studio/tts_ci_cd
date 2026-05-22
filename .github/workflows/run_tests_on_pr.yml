@@ -32,7 +32,6 @@ jobs:
     
     env:
       SETUPTOOLS_SCM_PRETEND_VERSION: "1.0.0.dev0"
-      # Fallback to tts_ci_cd if input isn't provided
       PACKAGE_NAME: ${{ inputs.package_name || 'tts_ci_cd' }}
 
     steps:
@@ -58,15 +57,15 @@ jobs:
           
           mkdir -p artifacts/html artifacts/machine
           
-          # Security Scanning
+          # Security Scanning (Bandit)
           bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true
           bandit -r src/ -f xml -o artifacts/machine/security-results-${{ matrix.python-version }}.xml || true
           
-          # Pip Audit to JSON then convert via your custom CLI
-          pip-audit -f json -o artifacts/machine/security-audit-${{ matrix.python-version }}.json || true
+          # Dependency Audit (Using redirection '>' for universal version compatibility)
+          pip-audit -f json > artifacts/machine/security-audit-${{ matrix.python-version }}.json || true
           tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html
           
-          # Testing
+          # Testing & Coverage
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
           pytest --pyargs $PACKAGE_NAME \
             --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
@@ -100,7 +99,8 @@ jobs:
               pip install . && \
               bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true && \
               bandit -r src/ -f xml -o artifacts/machine/security-results-${{ matrix.python-version }}.xml || true && \
-              pip-audit -f json -o artifacts/machine/security-audit-${{ matrix.python-version }}.json || true && \
+              # Using redirection for pip-audit to fix 'unrecognized arguments' on older pip-audit versions
+              pip-audit -f json > artifacts/machine/security-audit-${{ matrix.python-version }}.json || true && \
               tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html && \
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
