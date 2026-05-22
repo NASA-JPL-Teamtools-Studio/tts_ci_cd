@@ -11,6 +11,7 @@ on:
     branches: [ main ]
     types: [opened, synchronize, reopened] 
   push:
+    branches: [ main ]
   
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -39,7 +40,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ---- 1. MODERN PYTHON HANDLING (3.8 to 3.14) ----
       - name: Setup Modern Python
         if: matrix.python-version != '3.6' && matrix.python-version != '3.7'
         uses: actions/setup-python@v5
@@ -54,20 +54,22 @@ jobs:
           pip install pytest pytest-html pytest-cov setuptools-scm bandit
           pip install .
           
-          # Run Bandit Security Scan
-          bandit -r src/ -f html -o security-report-${{ matrix.python-version }}.html || true
+          mkdir -p artifacts/html artifacts/xml
           
-          # Run Tests
+          # Bandit: Generate both HTML and XML
+          bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true
+          bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true
+          
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
+          
           pytest --pyargs $PACKAGE_NAME \
-            --html=report-${{ matrix.python-version }}.html --self-contained-html \
-            --junitxml=results-${{ matrix.python-version }}.xml \
+            --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
+            --junitxml=artifacts/xml/results-${{ matrix.python-version }}.xml \
             --cov="$INSTALLED_PATH" \
             --cov-report=term \
-            --cov-report=xml:coverage-${{ matrix.python-version }}.xml \
-            --cov-report=html:coverage-html-${{ matrix.python-version }}
+            --cov-report=xml:artifacts/xml/coverage-${{ matrix.python-version }}.xml \
+            --cov-report=html:artifacts/html/coverage-html-${{ matrix.python-version }}
 
-      # ---- 2. LEGACY PYTHON HANDLING (3.6 and 3.7) ----
       - name: Test & Security Scan (Legacy)
         if: matrix.python-version == '3.6' || matrix.python-version == '3.7'
         run: |
@@ -80,6 +82,7 @@ jobs:
             bash -c "
               apt-get update && apt-get install -y git && \
               git config --global --add safe.directory /app && \
+              mkdir -p artifacts/html artifacts/xml && \
               if [ '${{ matrix.python-version }}' = '3.6' ]; then
                 pip install --upgrade 'pip<21.0' 'setuptools<60.0' wheel && \
                 pip install 'pytest<7.0' 'pytest-html<3.0' 'setuptools-scm<7.0' 'pytest-cov<3.0' 'bandit<1.7.3';
@@ -88,35 +91,27 @@ jobs:
                 pip install 'pytest<8.0' 'pytest-html<4.0' 'setuptools-scm<8.0' 'pytest-cov<4.0' 'bandit<1.7.5';
               fi && \
               pip install . && \
-              # Run Bandit
-              bandit -r src/ -f html -o security-report-${{ matrix.python-version }}.html || true && \
-              # Run Tests
+              bandit -r src/ -f html -o artifacts/html/security-report-${{ matrix.python-version }}.html || true && \
+              bandit -r src/ -f xml -o artifacts/xml/security-results-${{ matrix.python-version }}.xml || true && \
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
-                --html=report-${{ matrix.python-version }}.html --self-contained-html \
-                --junitxml=results-${{ matrix.python-version }}.xml \
+                --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
+                --junitxml=artifacts/xml/results-${{ matrix.python-version }}.xml \
                 --cov=\"\$INSTALLED_PATH\" \
                 --cov-report=term \
-                --cov-report=xml:coverage-${{ matrix.python-version }}.xml \
-                --cov-report=html:coverage-html-${{ matrix.python-version }}
+                --cov-report=xml:artifacts/xml/coverage-${{ matrix.python-version }}.xml \
+                --cov-report=html:artifacts/html/coverage-html-${{ matrix.python-version }}
             "
           sudo chown -R $USER:$USER "$GITHUB_WORKSPACE"
 
-      # ---- 3. UPLOAD ALL ARTIFACTS ----
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-artifacts-py${{ matrix.python-version }}
-          path: |
-            report-${{ matrix.python-version }}.html
-            results-${{ matrix.python-version }}.xml
-            coverage-${{ matrix.python-version }}.xml
-            coverage-html-${{ matrix.python-version }}/
-            security-report-${{ matrix.python-version }}.html
+          path: artifacts/
           retention-days: 1
 
-      # ---- 4. JOB STATUS UPLOAD (Same as before) ----
       - name: Save Job Status
         if: always()
         run: echo "${{ matrix.python-version }}|${{ job.status }}" > status-${{ matrix.python-version }}.txt
@@ -129,7 +124,6 @@ jobs:
           path: status-${{ matrix.python-version }}.txt
           retention-days: 1
 
-  # ---- 5. AGGREGATE RESULTS & POST COMMENT ----
   comment:
     name: Post PR Comment
     needs: test
@@ -152,7 +146,7 @@ jobs:
           for file in $(ls status-*.txt | sort -V); do
             IFS='|' read -r version status < "$file"
             icon=$([ "$status" = "success" ] && echo "✅" || echo "❌")
-            base_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}"
+            base_url="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/html"
             
             echo "| **$version** | $icon | [Tests]($base_url/report-$version.html) | [Coverage]($base_url/coverage-html-$version/index.html) | [Security]($base_url/security-report-$version.html) |" >> pr_message.md
           done
@@ -161,7 +155,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ---- 6. PUBLISH TO GITHUB PAGES ----
   publish-reports:
     name: Publish to gh-pages
     needs: test
