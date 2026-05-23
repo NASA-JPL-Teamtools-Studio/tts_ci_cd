@@ -20,6 +20,7 @@ dependencies = [
   "tomli", 
   "ipywidgets",
   "anywidget",
+  "tts-html-utils>=0.5.5,<1.0.0",
   "tts-papertrail>=0.4.2,<1.0.0",
   "tts-tower>=0.5.5,<1.0.0",
   "pyyaml",
