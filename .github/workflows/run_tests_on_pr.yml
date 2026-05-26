@@ -63,7 +63,7 @@ jobs:
           
           # Dependency Audit (Using redirection '>' for universal version compatibility)
           pip-audit -f json > artifacts/machine/security-audit-${{ matrix.python-version }}.json || true
-          tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html
+          tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html artifacts/html/security-audit-${{ matrix.python-version }}.yml
           
           # Testing & Coverage
           INSTALLED_PATH=$(python -c "import $PACKAGE_NAME; import os; print(os.path.dirname($PACKAGE_NAME.__file__))")
