@@ -30,15 +30,15 @@ class PipAuditItem(DataItem):
     def default_html_row_style(self):
         """Returns row styling based on the EVR severity level."""
         if self['Severity'] == 'CRITICAL':            
-            return EvrPalette['FATAL']
+            return EvrPalette()['FATAL']
         elif self['Severity'] == 'HIGH':
-            return EvrPalette['WARNING_HI']
+            return EvrPalette()['WARNING_HI']
         elif self['Severity'] == 'MODERATE':
-            return EvrPalette['WARNING_LO']
+            return EvrPalette()['WARNING_LO']
         elif self['Severity'] == 'LOW':
-            return EvrPalette['ACTIVITY_HI']
+            return EvrPalette()['ACTIVITY_HI']
         else:
-            return EvrPalette['FATAL']
+            return EvrPalette()['FATAL']
     
     @property
     def time(self):
