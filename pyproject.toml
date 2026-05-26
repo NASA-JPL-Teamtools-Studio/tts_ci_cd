@@ -32,7 +32,7 @@ dependencies = [
   "jinja2",
   "packaging",
   "docker",
-  "yaml"
+  "pyyaml"
 ]
 dynamic = ["version"]
 
