@@ -101,7 +101,7 @@ jobs:
               bandit -r src/ -f xml -o artifacts/machine/security-results-${{ matrix.python-version }}.xml || true && \
               # Using redirection for pip-audit to fix 'unrecognized arguments' on older pip-audit versions
               pip-audit -f json > artifacts/machine/security-audit-${{ matrix.python-version }}.json || true && \
-              tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html && \
+              tts-pip-audit-report artifacts/machine/security-audit-${{ matrix.python-version }}.json artifacts/html/security-audit-${{ matrix.python-version }}.html artifacts/html/security-audit-${{ matrix.python-version }}.yml && \
               INSTALLED_PATH=\$(python -c \"import \$PACKAGE_NAME; import os; print(os.path.dirname(\$PACKAGE_NAME.__file__))\") && \
               pytest --pyargs \$PACKAGE_NAME \
                 --html=artifacts/html/report-${{ matrix.python-version }}.html --self-contained-html \
