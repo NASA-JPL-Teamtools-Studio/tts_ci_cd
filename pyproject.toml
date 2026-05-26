@@ -20,6 +20,7 @@ dependencies = [
   "tomli", 
   "ipywidgets",
   "anywidget",
+  "tts-data-utils>=0.7.4,<1.0.0",
   "tts-html-utils>=0.5.5,<1.0.0",
   "tts-papertrail>=0.4.2,<1.0.0",
   "tts-tower>=0.5.5,<1.0.0",
@@ -31,6 +32,7 @@ dependencies = [
   "jinja2",
   "packaging",
   "docker",
+  "yaml"
 ]
 dynamic = ["version"]
 
