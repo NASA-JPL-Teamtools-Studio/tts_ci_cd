@@ -1,0 +1,9 @@
+generated_at: '2026-05-26T18:30:05.679226'
+gumball: BLACKRED
+severity_counts:
+  critical: 2
+  high: 27
+  low: 5
+  moderate: 35
+  unknown: 0
+total_vulnerabilities: 69
