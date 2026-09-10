@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import warnings
@@ -14,13 +15,14 @@ from rich import box
 # --- CONFIGURATION ---
 CONFIG_PATH = Path.home() / ".tts_config/deploy_locations.yaml"
 
+
 def load_dynamic_indexes():
     """
     Loads Artifactory URLs and injects credentials for pip compatibility.
     """
     # Start with Public PyPI as a default
     indexes = {"Public PyPI": "https://pypi.org/simple"}
-    
+
     if not CONFIG_PATH.exists():
         return indexes
 
@@ -29,7 +31,7 @@ def load_dynamic_indexes():
             config = yaml.load(f, Loader=yaml.SafeLoader)
             if not config:
                 return indexes
-            
+
             art_config = config.get("artifactory", {})
             auth = config.get("auth", {})
             user = auth.get("artifactory_username")
@@ -40,17 +42,18 @@ def load_dynamic_indexes():
                 normalized_url = url.rstrip('/')
                 if not normalized_url.endswith('/simple'):
                     normalized_url += '/simple'
-                
+
                 # Inject credentials if available (required for private index lookup)
                 if user and pwd and "https://" in normalized_url:
                     auth_prefix = f"https://{user}:{pwd}@"
                     normalized_url = normalized_url.replace("https://", auth_prefix)
-                
+
                 indexes[env_name.capitalize()] = normalized_url
     except Exception as e:
         print(f"⚠️  Config Error: {e}")
-            
+
     return indexes
+
 
 # Load the map of Index Name -> Authenticated URL
 ARTIFACTORY_URLS = load_dynamic_indexes()
@@ -61,18 +64,59 @@ try:
 except ImportError:
     SETUPTOOLS_SCM_AVAILABLE = False
 
+
+def get_core_lib_names(workspace_root):
+    """
+    Finds all repositories in the tts_core group and extracts their base library names.
+    Returns a set of lib names (e.g., 'tts_dante' -> 'dante').
+    """
+    tts_core_path = Path(workspace_root) / "tts_core"
+    if not tts_core_path.exists() or not tts_core_path.is_dir():
+        return set()
+
+    core_lib_names = set()
+    try:
+        for item in os.listdir(tts_core_path):
+            full_path = tts_core_path / item
+            if full_path.is_dir() and (full_path / ".git").exists():
+                # Remove 'tts_' prefix if present to get the base library name
+                lib_name = item[4:] if item.startswith("tts_") else item
+                core_lib_names.add(lib_name)
+    except Exception:
+        pass
+    return core_lib_names
+
+
+def is_tts_related(repo_name, core_lib_names, is_in_core_group):
+    """
+    Determines if a repository is a core TTS library or an adaptation of one.
+    """
+    if is_in_core_group:
+        return True
+
+    if "_" in repo_name:
+        # Pattern: missionname_libname (e.g., demosat_dante)
+        parts = repo_name.split("_", 1)
+        lib_name = parts[1]
+        if lib_name in core_lib_names:
+            return True
+
+    return False
+
+
 def get_project_metadata(path):
     """Reads the actual package name and version from pyproject.toml."""
     toml_path = Path(path) / "pyproject.toml"
     if not toml_path.exists():
         return os.path.basename(path)
-    
+
     try:
         with open(toml_path, "rb") as f:
             data = tomllib.load(f)
             return data.get("project", {}).get("name", os.path.basename(path))
     except Exception:
         return os.path.basename(path)
+
 
 def get_scm_version(path):
     if not SETUPTOOLS_SCM_AVAILABLE:
@@ -87,22 +131,23 @@ def get_scm_version(path):
     except Exception:
         return None, "[dim]Error[/dim]"
 
+
 def get_remote_version(package_name, index_url, local_version=None):
     """Queries a specific index for a package name."""
     cmd = [
         sys.executable, "-m", "pip", "index", "versions", package_name,
         "--index-url", index_url
     ]
-    
+
     try:
         # Use a longer timeout for Artifactory which can be sluggish
         result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            timeout=8 
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=8
         )
-        
+
         if result.returncode != 0:
             return None, "[yellow]None[/yellow]"
 
@@ -111,17 +156,18 @@ def get_remote_version(package_name, index_url, local_version=None):
         if match:
             raw_ver = match.group(1)
             return raw_ver, colorize_version(raw_ver, local_version)
-        
+
         # Fallback for "package (1.2.3)"
         match_paren = re.search(r"\(([\d\.]+)\)", result.stdout)
         if match_paren:
             raw_ver = match_paren.group(1)
             return raw_ver, colorize_version(raw_ver, local_version)
-            
+
         return None, "[dim]?[/dim]"
 
     except (subprocess.TimeoutExpired, Exception):
         return None, "[red]Err[/red]"
+
 
 def colorize_version(remote_version, local_version):
     if local_version is None:
@@ -130,27 +176,43 @@ def colorize_version(remote_version, local_version):
         return f"[green]{remote_version}[/green]"
     return f"[yellow]{remote_version}[/yellow]"
 
-def get_git_status(path):
+
+def get_git_status(path, do_fetch=False):
+    """
+    Reports the local git status of a repository.
+
+    Args:
+        path: The path to the repository.
+        do_fetch: If True, performs a network fetch to determine
+                  ahead/behind sync status. Defaults to False for speed.
+    """
     try:
         repo = Repo(path)
-        try:
-            for remote in repo.remotes:
-                remote.fetch(kill_after_timeout=5)
-        except:
-            pass 
+        if do_fetch:
+            try:
+                for remote in repo.remotes:
+                    remote.fetch(kill_after_timeout=5)
+            except Exception:
+                pass
 
         try:
             branch = repo.active_branch.name
-        except:
+        except Exception:
             branch = f"({repo.head.commit.hexsha[:7]})"
 
-        ahead = behind = 0
-        try:
-            tracking = repo.active_branch.tracking_branch()
-            if tracking:
-                ahead = len(list(repo.iter_commits(f"{tracking.name}..{branch}")))
-                behind = len(list(repo.iter_commits(f"{branch}..{tracking.name}")))
-        except:
+        ahead = behind = "?"
+        if do_fetch:
+            try:
+                tracking = repo.active_branch.tracking_branch()
+                if tracking:
+                    ahead = len(list(repo.iter_commits(f"{tracking.name}..{branch}")))
+                    behind = len(list(repo.iter_commits(f"{branch}..{tracking.name}")))
+                else:
+                    ahead = behind = 0
+            except Exception:
+                ahead = behind = "?"
+        else:
+            # Without fetching, we cannot reliably determine upstream sync status.
             ahead = behind = "?"
 
         return {
@@ -165,16 +227,43 @@ def get_git_status(path):
     except InvalidGitRepositoryError:
         return {"is_repo": False}
 
+
 def main():
-    target_dir = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
+    parser = argparse.ArgumentParser(
+        description="Fast Git Dashboard for TTS Workspace"
+    )
+    parser.add_argument(
+        "target_dir", nargs="?", default=os.getcwd(),
+        help="Directory to scan for repositories"
+    )
+    parser.add_argument(
+        "--deployment", action="store_true",
+        help="Include deployment/Artifactory version information"
+    )
+    parser.add_argument(
+        "--show-all", action="store_true",
+        help="Show all repositories, not just TTS core and adaptations"
+    )
+    parser.add_argument(
+        "--fetch", action="store_true",
+        help="Fetch from remotes to get accurate ahead/behind sync status (slower)"
+    )
+    args = parser.parse_args()
+
+    target_dir = args.target_dir
     console = Console()
-    
-    table = Table(title=f"Multi-Index Dashboard: {target_dir}", box=box.ROUNDED)
+
+    # Pre-compute core library names for adaptation detection
+    core_lib_names = get_core_lib_names(target_dir)
+
+    table = Table(title=f"Git Dashboard: {target_dir}", box=box.ROUNDED)
+    table.add_column("Group", style="dim")
     table.add_column("Repository", style="cyan", no_wrap=True)
-    table.add_column("Local", style="bold dodger_blue1") 
-    
-    for name in ARTIFACTORY_URLS.keys():
-        table.add_column(name, justify="center")
+
+    if args.deployment:
+        table.add_column("Local", style="bold dodger_blue1")
+        for name in ARTIFACTORY_URLS.keys():
+            table.add_column(name, justify="center")
 
     table.add_column("Branch", style="magenta")
     table.add_column("State", style="bold")
@@ -184,52 +273,75 @@ def main():
 
     with console.status("[bold green]Analyzing Repositories...") as status:
         try:
-            dirs = sorted([d for d in os.listdir(target_dir) if os.path.isdir(os.path.join(target_dir, d))])
+            entries = sorted(os.listdir(target_dir))
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
             return
 
-        for item in dirs:
-            full_path = os.path.join(target_dir, item)
-            repo_info = get_git_status(full_path)
+        for group_name in entries:
+            group_path = os.path.join(target_dir, group_name)
+            if not os.path.isdir(group_path):
+                continue
 
-            if repo_info.get("is_repo"):
-                repos_found = True
-                
-                # Use pyproject.toml name for index lookups, folder name for table display
-                package_name = get_project_metadata(full_path)
-                local_ver_raw, local_ver_display = get_scm_version(full_path)
+            is_core_group = (group_name == "tts_core")
 
-                index_versions = []
-                for name, url in ARTIFACTORY_URLS.items():
-                    status.update(f"[bold green]{package_name}: Checking {name}...")
-                    _, ver_display = get_remote_version(package_name, url, local_ver_raw)
-                    index_versions.append(ver_display)
+            try:
+                repos = sorted(os.listdir(group_path))
+            except Exception:
+                continue
 
-                state_text = "[red]Mod[/red]" if repo_info['dirty'] else "[dim]Clean[/dim]"
-                if repo_info['untracked']:
-                    state_text += " [yellow]*[/yellow]"
+            for repo_name in repos:
+                full_path = os.path.join(group_path, repo_name)
+                if not os.path.isdir(full_path):
+                    continue
 
-                # Sync Status
-                a, b = repo_info['ahead'], repo_info['behind']
-                sync_parts = []
-                if a != 0: sync_parts.append(f"[yellow]↑{a}[/yellow]")
-                if b != 0: sync_parts.append(f"[red]↓{b}[/red]")
-                sync_text = " ".join(sync_parts) if sync_parts else "[dim]✓[/dim]"
+                repo_info = get_git_status(full_path, do_fetch=args.fetch)
 
-                table.add_row(
-                    repo_info['folder_name'],
-                    local_ver_display,
-                    *index_versions,
-                    repo_info['branch'],
-                    state_text,
-                    sync_text
-                )
+                if repo_info.get("is_repo"):
+                    # Filtering logic
+                    if not args.show_all:
+                        if not is_tts_related(repo_name, core_lib_names, is_core_group):
+                            continue
+
+                    repos_found = True
+
+                    if args.deployment:
+                        package_name = get_project_metadata(full_path)
+                        local_ver_raw, local_ver_display = get_scm_version(full_path)
+
+                        index_versions = []
+                        for name, url in ARTIFACTORY_URLS.items():
+                            status.update(f"[bold green]{package_name}: Checking {name}...")
+                            _, ver_display = get_remote_version(package_name, url, local_ver_raw)
+                            index_versions.append(ver_display)
+                    else:
+                        local_ver_display = None
+                        index_versions = []
+
+                    state_text = "[red]Mod[/red]" if repo_info['dirty'] else "[dim]Clean[/dim]"
+                    if repo_info['untracked']:
+                        state_text += " [yellow]*[/yellow]"
+
+                    # Sync Status
+                    a, b = repo_info['ahead'], repo_info['behind']
+                    sync_parts = []
+                    if a != 0 and a != "?": sync_parts.append(f"[yellow]↑{a}[/yellow]")
+                    if b != 0 and b != "?": sync_parts.append(f"[red]↓{b}[/red]")
+                    sync_text = " ".join(sync_parts) if sync_parts else "[dim]✓[/dim]"
+
+                    row_data = [group_name, repo_info['folder_name']]
+                    if args.deployment:
+                        row_data.append(local_ver_display)
+                        row_data.extend(index_versions)
+
+                    row_data.extend([repo_info['branch'], state_text, sync_text])
+                    table.add_row(*row_data)
 
     if repos_found:
         console.print(table)
     else:
-        console.print(f"[yellow]No git repositories found in {target_dir}[/yellow]")
+        console.print(f"[yellow]No matching git repositories found in {target_dir}[/yellow]")
+
 
 if __name__ == "__main__":
     main()
