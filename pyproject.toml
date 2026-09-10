@@ -20,7 +20,10 @@ dependencies = [
   "tomli", 
   "ipywidgets",
   "anywidget",
-  "tts-papertrail",
+  "tts-data-utils>=0.7.4,<1.0.0",
+  "tts-html-utils>=0.5.5,<1.0.0",
+  "tts-papertrail>=0.4.2,<1.0.0",
+  "tts-tower>=0.5.5,<1.0.0",
   "pyyaml",
   "sphinx", 
   "sphinx-rtd-theme", 
@@ -29,6 +32,9 @@ dependencies = [
   "jinja2",
   "packaging",
   "docker",
+  "pyyaml",
+  "cvss",
+  "tinycss2>=1.5.0"
 ]
 dynamic = ["version"]
 
@@ -42,6 +48,9 @@ tts-dev-setup = "tts_ci_cd.dev_setup:main"
 tts-demosat-dev-setup = "tts_ci_cd.demosat_dev_setup:main"
 tts-doc-builder = "tts_ci_cd.doc_builder:main"
 tts-deploy-lib = "tts_ci_cd.deploy_lib:main"
+tts-pip-audit-report = "tts_ci_cd.pip_audit_report:main"
+tts-write-agent-pointer = "tts_ci_cd.write_agent_pointer:main"
+tts-validate-agent-pointers = "tts_ci_cd.validate_agent_pointers:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
