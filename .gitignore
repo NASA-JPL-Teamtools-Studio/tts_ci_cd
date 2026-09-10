@@ -188,3 +188,6 @@ Thumbs.db
 
 #nfs temp files
 .nfs*
+
+# Developer-local venv manifest (copy .venvs.yaml.example → .venvs.yaml and fill in)
+.venvs.yaml
