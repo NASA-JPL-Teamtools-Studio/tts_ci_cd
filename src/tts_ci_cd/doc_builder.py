@@ -21,6 +21,7 @@ from docker.errors import DockerException, ImageNotFound, APIError
 
 # Import the base RepoManager class
 from .repo_manager import RepoManager, RepoInfo
+from .build_sphinx_docs import build_current_version
 
 # Configure logging
 logging.basicConfig(
@@ -88,7 +89,17 @@ class DocBuilder(RepoManager):
     # Methods like load_config, load_repos, construct_git_url, and clone_repo
     # are now inherited from RepoManager
         
-    def build_docs(self, repo_dir: Path, output_dir: Path, push: bool = False, ignore_errors: bool = True) -> bool:
+    def build_docs(
+        self,
+        repo_dir: Path,
+        output_dir: Path,
+        push: bool = False,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation for a repository.
         
@@ -118,12 +129,63 @@ class DocBuilder(RepoManager):
         
         if in_github_actions:
             # In GitHub Actions, build directly
-            return self._build_docs_directly(repo_dir, script_path, template_path, push, ignore_errors)
+            return self._build_docs_directly(
+                repo_dir,
+                script_path,
+                template_path,
+                push,
+                ignore_errors,
+                docs_dir,
+                force_theme,
+                generate_api,
+                generate_index,
+            )
         else:
             # For local execution, use Docker
-            return self._build_docs_with_docker(repo_dir, script_path, template_path, push, ignore_errors)
-    
-    def _build_docs_directly(self, repo_dir: Path, script_path: Path, template_path: Path, push: bool, ignore_errors: bool = True) -> bool:
+            return self._build_docs_with_docker(
+                repo_dir,
+                script_path,
+                template_path,
+                push,
+                ignore_errors,
+                docs_dir,
+                force_theme,
+                generate_api,
+                generate_index,
+            )
+
+    def build_current_checkout(
+        self,
+        repo_dir: Path,
+        docs_dir: str = "docs",
+        output_dir: Optional[Path] = None,
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> Path:
+        """Build documentation from an existing checkout without publishing."""
+        return build_current_version(
+            repo_dir,
+            docs_dir=docs_dir,
+            output_dir=output_dir,
+            force_theme=force_theme,
+            generate_api=generate_api,
+            generate_index=generate_index,
+            check_dirty=generate_api or generate_index,
+        )
+
+    def _build_docs_directly(
+        self,
+        repo_dir: Path,
+        script_path: Path,
+        template_path: Path,
+        push: bool,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation directly without Docker.
         
@@ -146,11 +208,16 @@ class DocBuilder(RepoManager):
         
         # Build the documentation
         logger.info(f"Building documentation directly for {repo_dir.name}...")
-        cmd = [sys.executable, "build_sphinx_docs.py"]
-        
+        cmd = [sys.executable, "build_sphinx_docs.py", "--docs-dir", docs_dir]
+
         if push:
             cmd.append("--push")
-            
+        if not force_theme:
+            cmd.append("--no-force-theme")
+        if not generate_api:
+            cmd.append("--no-generate-api")
+        if not generate_index:
+            cmd.append("--no-generate-index")
         if not ignore_errors:
             cmd.append("--no-ignore-errors")
         
@@ -174,7 +241,18 @@ class DocBuilder(RepoManager):
             if repo_template_path.exists():
                 repo_template_path.unlink()
     
-    def _build_docs_with_docker(self, repo_dir: Path, script_path: Path, template_path: Path, push: bool, ignore_errors: bool = True) -> bool:
+    def _build_docs_with_docker(
+        self,
+        repo_dir: Path,
+        script_path: Path,
+        template_path: Path,
+        push: bool,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation using Docker.
         
@@ -387,7 +465,11 @@ WORKDIR /workspace
                     logger.info("Mounting .netrc file for authentication")
         
         # Prepare command - now with a setup script that includes more verbose logging
-        ignore_errors_flag = ' --no-ignore-errors' if not ignore_errors else ''
+        docs_dir_flag = f" --docs-dir {docs_dir}"
+        force_theme_flag = "" if force_theme else " --no-force-theme"
+        generate_api_flag = "" if generate_api else " --no-generate-api"
+        generate_index_flag = "" if generate_index else " --no-generate-index"
+        ignore_errors_flag = " --no-ignore-errors" if not ignore_errors else ""
         
         # Add a sleep command at the end if interactive mode is enabled
         interactive_wait = ""
@@ -417,7 +499,7 @@ WORKDIR /workspace
         
         echo "=== Running documentation builder ==="
         # Run the documentation builder using the script we copied to the repo directory
-        python {container_path}/build_sphinx_docs.py{' --push' if push else ''}{ignore_errors_flag}
+        python {container_path}/build_sphinx_docs.py{docs_dir_flag}{' --push' if push else ''}{force_theme_flag}{generate_api_flag}{generate_index_flag}{ignore_errors_flag}
         {interactive_wait}
         """
         
@@ -651,12 +733,18 @@ WORKDIR /workspace
             shutil.rmtree(self.temp_dir)
             logger.info(f"Cleaned up temporary directory: {self.temp_dir}")
     
-    def run(self, 
-            repo_names: Optional[List[str]] = None, 
-            workspace_dir: Optional[Path] = None,
-            protocol: str = "ssh",
-            push: bool = False,
-            ignore_errors: bool = True) -> Dict[str, bool]:
+    def run(
+        self,
+        repo_names: Optional[List[str]] = None,
+        workspace_dir: Optional[Path] = None,
+        protocol: str = "ssh",
+        push: bool = False,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> Dict[str, bool]:
         """
         Run the documentation build process.
         
@@ -709,7 +797,16 @@ WORKDIR /workspace
                     repo_dir = self.clone_repo(repo_info, work_dir, protocol)
                     
                     # Build the documentation
-                    success = self.build_docs(repo_dir, output_dir, push, ignore_errors)
+                    success = self.build_docs(
+                        repo_dir,
+                        output_dir,
+                        push,
+                        ignore_errors,
+                        docs_dir,
+                        force_theme,
+                        generate_api,
+                        generate_index,
+                    )
                     results[repo_name] = success
                     
                     if success:
@@ -744,6 +841,44 @@ def main():
         help="Path to the YAML configuration file"
     )
     
+    parser.add_argument(
+        "--current-checkout",
+        action="store_true",
+        help="Build documentation from the current checkout without cloning or publishing",
+    )
+
+    parser.add_argument(
+        "--docs-dir",
+        type=str,
+        default="docs",
+        help="Documentation source directory for current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Local documentation output directory for current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-generate-api",
+        action="store_true",
+        help="Do not generate API sources during current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-generate-index",
+        action="store_true",
+        help="Do not generate an index during current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-force-theme",
+        action="store_true",
+        help="Use the documentation project's configured theme",
+    )
+
     parser.add_argument(
         "--workspace",
         type=str,
@@ -848,16 +983,35 @@ def main():
         interactive=args.interactive
     )
     
+    if args.current_checkout:
+        if args.push:
+            parser.error("--push cannot be used with --current-checkout")
+        output_dir = Path(args.output_dir) if args.output_dir else None
+        output_path = builder.build_current_checkout(
+            Path.cwd(),
+            docs_dir=args.docs_dir,
+            output_dir=output_dir,
+            force_theme=not args.no_force_theme,
+            generate_api=not args.no_generate_api,
+            generate_index=not args.no_generate_index,
+        )
+        logger.info("Documentation built at %s", output_path)
+        return
+
     # Determine workspace directory
     workspace_dir = Path(args.workspace) if args.workspace else None
-    
+
     # Run the builder
     builder.run(
         repo_names=args.repos,
         workspace_dir=workspace_dir,
         protocol=args.protocol,
         push=args.push,
-        ignore_errors=not args.no_ignore_errors
+        ignore_errors=not args.no_ignore_errors,
+        docs_dir=args.docs_dir,
+        force_theme=not args.no_force_theme,
+        generate_api=not args.no_generate_api,
+        generate_index=not args.no_generate_index,
     )
 
 if __name__ == "__main__":

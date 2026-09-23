@@ -276,38 +276,44 @@ def post_process_api_docs(api_dir):
 
         rst_file.write_text(content)
 
-def generate_dynamic_docs(repo_path, docs_dir, project_name):
-    """Runs sphinx-apidoc, post-processes headers, and overwrites index.rst."""
+def generate_dynamic_docs(
+    repo_path,
+    docs_dir,
+    project_name,
+    generate_api=True,
+    generate_index=True,
+):
+    """Generate optional API and index sources for a documentation build."""
     package_dir, import_root = find_actual_package(repo_path)
     output_path = repo_path / docs_dir / "api"
-    
-    if not package_dir.exists():
-        logger.warning(f"Could not find package source, skipping apidoc.")
-        return import_root
 
-    if output_path.exists():
-        shutil.rmtree(output_path)
-    output_path.mkdir(parents=True, exist_ok=True)
+    if generate_api:
+        if not package_dir.exists():
+            logger.warning("Could not find package source, skipping apidoc.")
+            return import_root
 
-    exclusions = [
-        str(package_dir / "test"),     
-        str(package_dir / "tests"),    
-        "setup.py", 
-        "*migrations*"                 
-    ]
+        if output_path.exists():
+            shutil.rmtree(output_path)
+        output_path.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        "sphinx-apidoc", "-f", "-M",
-        "-o", str(output_path), 
-        str(package_dir)
-    ] + exclusions
-    
-    subprocess.run(cmd, check=True, capture_output=True)
+        exclusions = [
+            str(package_dir / "test"),
+            str(package_dir / "tests"),
+            "setup.py",
+            "*migrations*",
+        ]
 
-    post_process_api_docs(output_path)
+        cmd = [
+            "sphinx-apidoc", "-f", "-M",
+            "-o", str(output_path),
+            str(package_dir),
+        ] + exclusions
 
-    # Note: We rely on the theme to style this RST, but the content is generic
-    index_rst = f"""
+        subprocess.run(cmd, check=True, capture_output=True)
+        post_process_api_docs(output_path)
+
+    if generate_index:
+        index_rst = f"""
 {project_name}
 {'=' * len(project_name)}
 
@@ -329,23 +335,114 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 """
-    (repo_path / docs_dir / "index.rst").write_text(index_rst)
-    
+        (repo_path / docs_dir / "index.rst").write_text(index_rst)
+
     return import_root
 
-def cleanup_generated_docs(repo, repo_path, docs_dir):
-    api_dir = repo_path / docs_dir / "api"
-    if api_dir.exists():
-        shutil.rmtree(api_dir)
+
+def cleanup_generated_docs(repo, repo_path, docs_dir, generated_api=True, generated_index=True):
+    if generated_api:
+        api_dir = repo_path / docs_dir / "api"
+        if api_dir.exists():
+            shutil.rmtree(api_dir)
 
     index_file = repo_path / docs_dir / "index.rst"
     if index_file.exists():
         try:
-            repo.git.checkout(str(index_file)) 
+            repo.git.checkout(str(index_file))
         except GitCommandError:
-            index_file.unlink()
+            if generated_index:
+                index_file.unlink()
 
-def build_all_versions(repo_path, docs_dir="docs", builder="html", push=False, check_dirty=True, force_theme=True, ignore_errors=True):
+
+def _build_sphinx_source(
+    repo_path,
+    docs_dir,
+    output_dir,
+    builder="html",
+    force_theme=True,
+    generate_api=True,
+    generate_index=True,
+):
+    import_root = generate_dynamic_docs(
+        repo_path,
+        docs_dir,
+        get_project_metadata(repo_path)["name"],
+        generate_api=generate_api,
+        generate_index=generate_index,
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(import_root) + os.pathsep + env.get("PYTHONPATH", "")
+
+    build_cmd = ["sphinx-build", "-b", builder, docs_dir, str(output_dir)]
+    if force_theme:
+        build_cmd.extend(["-D", "html_theme=sphinx_rtd_theme"])
+
+    subprocess.run(
+        build_cmd,
+        cwd=repo_path,
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+
+
+def build_current_version(
+    repo_path,
+    docs_dir="docs",
+    output_dir=None,
+    builder="html",
+    check_dirty=True,
+    force_theme=True,
+    generate_api=True,
+    generate_index=True,
+):
+    """Build documentation for the current checkout without publishing."""
+    repo_path = Path(repo_path)
+    repo = Repo(repo_path)
+    if check_dirty and repo.is_dirty():
+        raise RuntimeError("Git repo dirty.")
+
+    output_dir = Path(output_dir or repo_path / "_build" / "html")
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    index_file = repo_path / docs_dir / "index.rst"
+    original_index = index_file.read_bytes() if index_file.exists() else None
+    try:
+        _build_sphinx_source(
+            repo_path,
+            docs_dir,
+            output_dir,
+            builder=builder,
+            force_theme=force_theme,
+            generate_api=generate_api,
+            generate_index=generate_index,
+        )
+    finally:
+        cleanup_generated_docs(
+            repo,
+            repo_path,
+            docs_dir,
+            generated_api=generate_api,
+            generated_index=generate_index,
+        )
+        if original_index is not None:
+            index_file.write_bytes(original_index)
+        elif index_file.exists():
+            index_file.unlink()
+    return output_dir
+
+
+def build_all_versions(
+    repo_path,
+    docs_dir="docs",
+    builder="html",
+    push=False,
+    check_dirty=True,
+    force_theme=True,
+    ignore_errors=True,
+    generate_api=True,
+    generate_index=True,
+):
     repo_path = Path(repo_path)
     repo = Repo(repo_path)
     meta = get_project_metadata(repo_path)
@@ -376,22 +473,17 @@ def build_all_versions(repo_path, docs_dir="docs", builder="html", push=False, c
             (repo_path / docs_dir / "_static").mkdir(parents=True, exist_ok=True)
             version_output = temp_output_dir / ref.name.replace('/', '_')
             
-            import_root = generate_dynamic_docs(repo_path, docs_dir, meta["name"])
-            
-            env = os.environ.copy()
-            env["PYTHONPATH"] = str(import_root) + os.pathsep + env.get("PYTHONPATH", "")
-
-            # COMMAND CONSTRUCTION
-            # We explicitly inject -D html_theme=sphinx_rtd_theme to force the look
-            # Note: This requires 'sphinx_rtd_theme' to be installed in the env.
-            build_cmd = f"sphinx-build -b {builder} {docs_dir} {version_output}"
-            if force_theme:
-                build_cmd += " -D html_theme=sphinx_rtd_theme"
-
             try:
                 logger.info(f"Building documentation for {ref.name} in {version_output}")
-                logger.info(f"Command: {build_cmd}")
-                subprocess.run(build_cmd, shell=True, cwd=repo_path, check=True, capture_output=True, env=env)
+                _build_sphinx_source(
+                    repo_path,
+                    docs_dir,
+                    version_output,
+                    builder=builder,
+                    force_theme=force_theme,
+                    generate_api=generate_api,
+                    generate_index=generate_index,
+                )
                 logger.info(f"Documentation for {ref.name} built successfully in {version_output}")
             except subprocess.CalledProcessError as e:
                 error_output = e.stderr.decode()
@@ -411,7 +503,13 @@ def build_all_versions(repo_path, docs_dir="docs", builder="html", push=False, c
                 else:
                     raise RuntimeError(f"Build failed for {ref.name} and ignore_errors is False")
             
-            cleanup_generated_docs(repo, repo_path, docs_dir)
+            cleanup_generated_docs(
+                repo,
+                repo_path,
+                docs_dir,
+                generated_api=generate_api,
+                generated_index=generate_index,
+            )
 
         if "gh-pages" in repo.heads:
             logger.info("Checking out existing gh-pages branch")
@@ -467,13 +565,22 @@ def build_all_versions(repo_path, docs_dir="docs", builder="html", push=False, c
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--push", action="store_true")
-    # Optional arg to disable strict RTD theme forcing if needed
+    parser.add_argument("--docs-dir", default="docs")
     parser.add_argument("--no-force-theme", action="store_true", help="Do not override html_theme in sphinx-build")
-    # Add option to fail on errors instead of ignoring them
+    parser.add_argument("--no-generate-api", action="store_true")
+    parser.add_argument("--no-generate-index", action="store_true")
     parser.add_argument("--no-ignore-errors", action="store_true", help="Do not ignore syntax errors in conf.py and other files")
     args = parser.parse_args()
-    
-    build_all_versions(Path.cwd(), push=args.push, force_theme=not args.no_force_theme, ignore_errors=not args.no_ignore_errors)
+
+    build_all_versions(
+        Path.cwd(),
+        docs_dir=args.docs_dir,
+        push=args.push,
+        force_theme=not args.no_force_theme,
+        ignore_errors=not args.no_ignore_errors,
+        generate_api=not args.no_generate_api,
+        generate_index=not args.no_generate_index,
+    )
 
 if __name__ == "__main__":
     main()
