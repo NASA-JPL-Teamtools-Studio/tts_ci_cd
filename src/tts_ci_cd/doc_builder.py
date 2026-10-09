@@ -73,7 +73,10 @@ class DocBuilder(RepoManager):
         super().__init__(config_path)
         
         # DocBuilder specific attributes
-        self.extra_index_url = extra_index_url
+        if isinstance(extra_index_url, str):
+            self.extra_index_urls = [extra_index_url]
+        else:
+            self.extra_index_urls = extra_index_url or []
         self.pypi_token = pypi_token
         self.trusted_host = trusted_host
         
@@ -271,64 +274,36 @@ class DocBuilder(RepoManager):
         # Prepare pip install commands with extra index URL if provided
         pip_install_cmd = "pip install --no-cache-dir"
         
-        # Handle trusted host for self-signed certificates
         trusted_host_option = ""
         if self.trusted_host:
             trusted_host_option = f" --trusted-host {self.trusted_host}"
             logger.info(f"Using trusted host: {self.trusted_host}")
-        elif self.extra_index_url and "artifactory" in self.extra_index_url.lower():
-            # Auto-extract host from Artifactory URL for convenience
+        elif any("artifactory" in url.lower() for url in self.extra_index_urls):
             from urllib.parse import urlparse
-            parsed_url = urlparse(self.extra_index_url)
-            host = parsed_url.netloc.split('@')[-1]  # Remove any auth info
+            host = urlparse(self.extra_index_urls[0]).netloc.split('@')[-1]
             trusted_host_option = f" --trusted-host {host}"
             logger.info(f"Auto-configuring trusted host: {host}")
         
-        # Handle extra index URL
-        if self.extra_index_url:
-            # Check if this is Artifactory URL (needs special handling)
-            if "artifactory" in self.extra_index_url.lower():
-                # Try to extract Artifactory URL components for better auth
+        artifactory_token = next(
+            (os.environ[env_var] for env_var in [
+                'ARTIFACTORY_TOKEN', 'ARTIFACTORY_API_KEY', 'ARTIFACTORY_PASSWORD'
+            ] if env_var in os.environ),
+            None,
+        )
+        for extra_index_url in self.extra_index_urls:
+            index_url = extra_index_url
+            if self.pypi_token or artifactory_token:
                 from urllib.parse import urlparse
-                parsed_url = urlparse(self.extra_index_url)
-                
-                # If URL contains credentials, extract them
-                netloc = parsed_url.netloc
-                if "@" in netloc:
-                    # URL already contains auth - use as is
-                    pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
-                else:
-                    # No auth in URL - check for environment variables
-                    artifactory_token = None
-                    for env_var in ['ARTIFACTORY_TOKEN', 'ARTIFACTORY_API_KEY', 'ARTIFACTORY_PASSWORD']:
-                        if env_var in os.environ:
-                            artifactory_token = os.environ[env_var]
-                            logger.info(f"Using Artifactory token from {env_var}")
-                            break
-                    
-                    # Construct authenticated URL if we have a token
-                    if self.pypi_token:
-                        # Use provided token
-                        user = os.environ.get('ARTIFACTORY_USER', 'token')
-                        auth_url = f"{parsed_url.scheme}://{user}:{self.pypi_token}@{netloc}{parsed_url.path}"
-                        pip_install_cmd += f" --extra-index-url {auth_url}{trusted_host_option}"
-                        logger.info("Using provided PyPI token for Artifactory authentication")
-                    elif artifactory_token:
-                        # Use token from environment
-                        user = os.environ.get('ARTIFACTORY_USER', 'token')
-                        auth_url = f"{parsed_url.scheme}://{user}:{artifactory_token}@{netloc}{parsed_url.path}"
-                        pip_install_cmd += f" --extra-index-url {auth_url}{trusted_host_option}"
-                        logger.info("Using environment token for Artifactory authentication")
-                    else:
-                        # No auth - use as provided and hope for netrc or pip.conf
-                        pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
-                        logger.info("Using Artifactory URL without explicit authentication")
-            else:
-                # Not Artifactory - use as is with trusted host if provided
-                pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
+                parsed_url = urlparse(extra_index_url)
+                if "@" not in parsed_url.netloc:
+                    user = os.environ.get('ARTIFACTORY_USER', 'token')
+                    token = self.pypi_token or artifactory_token
+                    index_url = f"{parsed_url.scheme}://{user}:{token}@{parsed_url.netloc}{parsed_url.path}"
+            pip_install_cmd += f" --extra-index-url {index_url}{trusted_host_option}"
         
         # Create a temporary Dockerfile with minimal steps to avoid hanging
-        dockerfile_content = f"""FROM python:3.13-slim
+        docker_base_image = os.environ.get("TTS_DOC_BUILDER_PYTHON_IMAGE", "python:3.13-slim")
+        dockerfile_content = f"""FROM {docker_base_image}
 
 # Set environment variables for better network behavior
 ENV PIP_DEFAULT_TIMEOUT=100 \
@@ -360,7 +335,7 @@ WORKDIR /workspace
             f.write(dockerfile_content)
         
         # Build the Docker image
-        image_tag = f"sphinx-doc-builder-{repo_dir.name}:latest"
+        image_tag = f"sphinx-doc-builder-{repo_dir.name}-{docker_base_image.replace('/', '-').replace(':', '-')}:latest"
         try:
             # First check if image already exists to avoid rebuilding
             try:
@@ -913,8 +888,8 @@ def main():
     
     parser.add_argument(
         "--extra-index-url",
-        type=str,
-        help="Additional PyPI index URL for private packages"
+        action="append",
+        help="Additional PyPI index URL for private packages; may be repeated"
     )
     
     parser.add_argument(
@@ -968,7 +943,7 @@ def main():
                 break
                 
     # Check if artifactory URL is provided and no token
-    if args.extra_index_url and "artifactory" in args.extra_index_url.lower() and not pypi_token:
+    if args.extra_index_url and not pypi_token and any("artifactory" in url.lower() for url in args.extra_index_url):
         logger.warning("Artifactory URL specified but no token provided.")
         logger.warning("Authentication may fail. Consider setting ARTIFACTORY_TOKEN environment variable.")
         logger.warning("Example: export ARTIFACTORY_TOKEN=your_token_here")
