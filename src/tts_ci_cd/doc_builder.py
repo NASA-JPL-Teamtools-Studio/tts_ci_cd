@@ -21,6 +21,7 @@ from docker.errors import DockerException, ImageNotFound, APIError
 
 # Import the base RepoManager class
 from .repo_manager import RepoManager, RepoInfo
+from .build_sphinx_docs import build_current_version
 
 # Configure logging
 logging.basicConfig(
@@ -72,7 +73,10 @@ class DocBuilder(RepoManager):
         super().__init__(config_path)
         
         # DocBuilder specific attributes
-        self.extra_index_url = extra_index_url
+        if isinstance(extra_index_url, str):
+            self.extra_index_urls = [extra_index_url]
+        else:
+            self.extra_index_urls = extra_index_url or []
         self.pypi_token = pypi_token
         self.trusted_host = trusted_host
         
@@ -88,7 +92,17 @@ class DocBuilder(RepoManager):
     # Methods like load_config, load_repos, construct_git_url, and clone_repo
     # are now inherited from RepoManager
         
-    def build_docs(self, repo_dir: Path, output_dir: Path, push: bool = False, ignore_errors: bool = True) -> bool:
+    def build_docs(
+        self,
+        repo_dir: Path,
+        output_dir: Path,
+        push: bool = False,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation for a repository.
         
@@ -118,12 +132,63 @@ class DocBuilder(RepoManager):
         
         if in_github_actions:
             # In GitHub Actions, build directly
-            return self._build_docs_directly(repo_dir, script_path, template_path, push, ignore_errors)
+            return self._build_docs_directly(
+                repo_dir,
+                script_path,
+                template_path,
+                push,
+                ignore_errors,
+                docs_dir,
+                force_theme,
+                generate_api,
+                generate_index,
+            )
         else:
             # For local execution, use Docker
-            return self._build_docs_with_docker(repo_dir, script_path, template_path, push, ignore_errors)
-    
-    def _build_docs_directly(self, repo_dir: Path, script_path: Path, template_path: Path, push: bool, ignore_errors: bool = True) -> bool:
+            return self._build_docs_with_docker(
+                repo_dir,
+                script_path,
+                template_path,
+                push,
+                ignore_errors,
+                docs_dir,
+                force_theme,
+                generate_api,
+                generate_index,
+            )
+
+    def build_current_checkout(
+        self,
+        repo_dir: Path,
+        docs_dir: str = "docs",
+        output_dir: Optional[Path] = None,
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> Path:
+        """Build documentation from an existing checkout without publishing."""
+        return build_current_version(
+            repo_dir,
+            docs_dir=docs_dir,
+            output_dir=output_dir,
+            force_theme=force_theme,
+            generate_api=generate_api,
+            generate_index=generate_index,
+            check_dirty=generate_api or generate_index,
+        )
+
+    def _build_docs_directly(
+        self,
+        repo_dir: Path,
+        script_path: Path,
+        template_path: Path,
+        push: bool,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation directly without Docker.
         
@@ -146,11 +211,16 @@ class DocBuilder(RepoManager):
         
         # Build the documentation
         logger.info(f"Building documentation directly for {repo_dir.name}...")
-        cmd = [sys.executable, "build_sphinx_docs.py"]
-        
+        cmd = [sys.executable, "build_sphinx_docs.py", "--docs-dir", docs_dir]
+
         if push:
             cmd.append("--push")
-            
+        if not force_theme:
+            cmd.append("--no-force-theme")
+        if not generate_api:
+            cmd.append("--no-generate-api")
+        if not generate_index:
+            cmd.append("--no-generate-index")
         if not ignore_errors:
             cmd.append("--no-ignore-errors")
         
@@ -174,7 +244,18 @@ class DocBuilder(RepoManager):
             if repo_template_path.exists():
                 repo_template_path.unlink()
     
-    def _build_docs_with_docker(self, repo_dir: Path, script_path: Path, template_path: Path, push: bool, ignore_errors: bool = True) -> bool:
+    def _build_docs_with_docker(
+        self,
+        repo_dir: Path,
+        script_path: Path,
+        template_path: Path,
+        push: bool,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> bool:
         """
         Build documentation using Docker.
         
@@ -193,64 +274,36 @@ class DocBuilder(RepoManager):
         # Prepare pip install commands with extra index URL if provided
         pip_install_cmd = "pip install --no-cache-dir"
         
-        # Handle trusted host for self-signed certificates
         trusted_host_option = ""
         if self.trusted_host:
             trusted_host_option = f" --trusted-host {self.trusted_host}"
             logger.info(f"Using trusted host: {self.trusted_host}")
-        elif self.extra_index_url and "artifactory" in self.extra_index_url.lower():
-            # Auto-extract host from Artifactory URL for convenience
+        elif any("artifactory" in url.lower() for url in self.extra_index_urls):
             from urllib.parse import urlparse
-            parsed_url = urlparse(self.extra_index_url)
-            host = parsed_url.netloc.split('@')[-1]  # Remove any auth info
+            host = urlparse(self.extra_index_urls[0]).netloc.split('@')[-1]
             trusted_host_option = f" --trusted-host {host}"
             logger.info(f"Auto-configuring trusted host: {host}")
         
-        # Handle extra index URL
-        if self.extra_index_url:
-            # Check if this is Artifactory URL (needs special handling)
-            if "artifactory" in self.extra_index_url.lower():
-                # Try to extract Artifactory URL components for better auth
+        artifactory_token = next(
+            (os.environ[env_var] for env_var in [
+                'ARTIFACTORY_TOKEN', 'ARTIFACTORY_API_KEY', 'ARTIFACTORY_PASSWORD'
+            ] if env_var in os.environ),
+            None,
+        )
+        for extra_index_url in self.extra_index_urls:
+            index_url = extra_index_url
+            if self.pypi_token or artifactory_token:
                 from urllib.parse import urlparse
-                parsed_url = urlparse(self.extra_index_url)
-                
-                # If URL contains credentials, extract them
-                netloc = parsed_url.netloc
-                if "@" in netloc:
-                    # URL already contains auth - use as is
-                    pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
-                else:
-                    # No auth in URL - check for environment variables
-                    artifactory_token = None
-                    for env_var in ['ARTIFACTORY_TOKEN', 'ARTIFACTORY_API_KEY', 'ARTIFACTORY_PASSWORD']:
-                        if env_var in os.environ:
-                            artifactory_token = os.environ[env_var]
-                            logger.info(f"Using Artifactory token from {env_var}")
-                            break
-                    
-                    # Construct authenticated URL if we have a token
-                    if self.pypi_token:
-                        # Use provided token
-                        user = os.environ.get('ARTIFACTORY_USER', 'token')
-                        auth_url = f"{parsed_url.scheme}://{user}:{self.pypi_token}@{netloc}{parsed_url.path}"
-                        pip_install_cmd += f" --extra-index-url {auth_url}{trusted_host_option}"
-                        logger.info("Using provided PyPI token for Artifactory authentication")
-                    elif artifactory_token:
-                        # Use token from environment
-                        user = os.environ.get('ARTIFACTORY_USER', 'token')
-                        auth_url = f"{parsed_url.scheme}://{user}:{artifactory_token}@{netloc}{parsed_url.path}"
-                        pip_install_cmd += f" --extra-index-url {auth_url}{trusted_host_option}"
-                        logger.info("Using environment token for Artifactory authentication")
-                    else:
-                        # No auth - use as provided and hope for netrc or pip.conf
-                        pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
-                        logger.info("Using Artifactory URL without explicit authentication")
-            else:
-                # Not Artifactory - use as is with trusted host if provided
-                pip_install_cmd += f" --extra-index-url {self.extra_index_url}{trusted_host_option}"
+                parsed_url = urlparse(extra_index_url)
+                if "@" not in parsed_url.netloc:
+                    user = os.environ.get('ARTIFACTORY_USER', 'token')
+                    token = self.pypi_token or artifactory_token
+                    index_url = f"{parsed_url.scheme}://{user}:{token}@{parsed_url.netloc}{parsed_url.path}"
+            pip_install_cmd += f" --extra-index-url {index_url}{trusted_host_option}"
         
         # Create a temporary Dockerfile with minimal steps to avoid hanging
-        dockerfile_content = f"""FROM python:3.13-slim
+        docker_base_image = os.environ.get("TTS_DOC_BUILDER_PYTHON_IMAGE", "python:3.13-slim")
+        dockerfile_content = f"""FROM {docker_base_image}
 
 # Set environment variables for better network behavior
 ENV PIP_DEFAULT_TIMEOUT=100 \
@@ -282,7 +335,7 @@ WORKDIR /workspace
             f.write(dockerfile_content)
         
         # Build the Docker image
-        image_tag = f"sphinx-doc-builder-{repo_dir.name}:latest"
+        image_tag = f"sphinx-doc-builder-{repo_dir.name}-{docker_base_image.replace('/', '-').replace(':', '-')}:latest"
         try:
             # First check if image already exists to avoid rebuilding
             try:
@@ -387,7 +440,11 @@ WORKDIR /workspace
                     logger.info("Mounting .netrc file for authentication")
         
         # Prepare command - now with a setup script that includes more verbose logging
-        ignore_errors_flag = ' --no-ignore-errors' if not ignore_errors else ''
+        docs_dir_flag = f" --docs-dir {docs_dir}"
+        force_theme_flag = "" if force_theme else " --no-force-theme"
+        generate_api_flag = "" if generate_api else " --no-generate-api"
+        generate_index_flag = "" if generate_index else " --no-generate-index"
+        ignore_errors_flag = " --no-ignore-errors" if not ignore_errors else ""
         
         # Add a sleep command at the end if interactive mode is enabled
         interactive_wait = ""
@@ -417,7 +474,7 @@ WORKDIR /workspace
         
         echo "=== Running documentation builder ==="
         # Run the documentation builder using the script we copied to the repo directory
-        python {container_path}/build_sphinx_docs.py{' --push' if push else ''}{ignore_errors_flag}
+        python {container_path}/build_sphinx_docs.py{docs_dir_flag}{' --push' if push else ''}{force_theme_flag}{generate_api_flag}{generate_index_flag}{ignore_errors_flag}
         {interactive_wait}
         """
         
@@ -651,12 +708,18 @@ WORKDIR /workspace
             shutil.rmtree(self.temp_dir)
             logger.info(f"Cleaned up temporary directory: {self.temp_dir}")
     
-    def run(self, 
-            repo_names: Optional[List[str]] = None, 
-            workspace_dir: Optional[Path] = None,
-            protocol: str = "ssh",
-            push: bool = False,
-            ignore_errors: bool = True) -> Dict[str, bool]:
+    def run(
+        self,
+        repo_names: Optional[List[str]] = None,
+        workspace_dir: Optional[Path] = None,
+        protocol: str = "ssh",
+        push: bool = False,
+        ignore_errors: bool = True,
+        docs_dir: str = "docs",
+        force_theme: bool = True,
+        generate_api: bool = True,
+        generate_index: bool = True,
+    ) -> Dict[str, bool]:
         """
         Run the documentation build process.
         
@@ -709,7 +772,16 @@ WORKDIR /workspace
                     repo_dir = self.clone_repo(repo_info, work_dir, protocol)
                     
                     # Build the documentation
-                    success = self.build_docs(repo_dir, output_dir, push, ignore_errors)
+                    success = self.build_docs(
+                        repo_dir,
+                        output_dir,
+                        push,
+                        ignore_errors,
+                        docs_dir,
+                        force_theme,
+                        generate_api,
+                        generate_index,
+                    )
                     results[repo_name] = success
                     
                     if success:
@@ -745,6 +817,44 @@ def main():
     )
     
     parser.add_argument(
+        "--current-checkout",
+        action="store_true",
+        help="Build documentation from the current checkout without cloning or publishing",
+    )
+
+    parser.add_argument(
+        "--docs-dir",
+        type=str,
+        default="docs",
+        help="Documentation source directory for current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Local documentation output directory for current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-generate-api",
+        action="store_true",
+        help="Do not generate API sources during current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-generate-index",
+        action="store_true",
+        help="Do not generate an index during current-checkout mode",
+    )
+
+    parser.add_argument(
+        "--no-force-theme",
+        action="store_true",
+        help="Use the documentation project's configured theme",
+    )
+
+    parser.add_argument(
         "--workspace",
         type=str,
         default=None,
@@ -778,8 +888,8 @@ def main():
     
     parser.add_argument(
         "--extra-index-url",
-        type=str,
-        help="Additional PyPI index URL for private packages"
+        action="append",
+        help="Additional PyPI index URL for private packages; may be repeated"
     )
     
     parser.add_argument(
@@ -833,7 +943,7 @@ def main():
                 break
                 
     # Check if artifactory URL is provided and no token
-    if args.extra_index_url and "artifactory" in args.extra_index_url.lower() and not pypi_token:
+    if args.extra_index_url and not pypi_token and any("artifactory" in url.lower() for url in args.extra_index_url):
         logger.warning("Artifactory URL specified but no token provided.")
         logger.warning("Authentication may fail. Consider setting ARTIFACTORY_TOKEN environment variable.")
         logger.warning("Example: export ARTIFACTORY_TOKEN=your_token_here")
@@ -848,16 +958,35 @@ def main():
         interactive=args.interactive
     )
     
+    if args.current_checkout:
+        if args.push:
+            parser.error("--push cannot be used with --current-checkout")
+        output_dir = Path(args.output_dir) if args.output_dir else None
+        output_path = builder.build_current_checkout(
+            Path.cwd(),
+            docs_dir=args.docs_dir,
+            output_dir=output_dir,
+            force_theme=not args.no_force_theme,
+            generate_api=not args.no_generate_api,
+            generate_index=not args.no_generate_index,
+        )
+        logger.info("Documentation built at %s", output_path)
+        return
+
     # Determine workspace directory
     workspace_dir = Path(args.workspace) if args.workspace else None
-    
+
     # Run the builder
     builder.run(
         repo_names=args.repos,
         workspace_dir=workspace_dir,
         protocol=args.protocol,
         push=args.push,
-        ignore_errors=not args.no_ignore_errors
+        ignore_errors=not args.no_ignore_errors,
+        docs_dir=args.docs_dir,
+        force_theme=not args.no_force_theme,
+        generate_api=not args.no_generate_api,
+        generate_index=not args.no_generate_index,
     )
 
 if __name__ == "__main__":
