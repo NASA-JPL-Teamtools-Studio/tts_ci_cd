@@ -1,5 +1,0 @@
-﻿Rule ID,Functional Category,Maturity,Title,Description,Violation Impact,Criticality,Apprval at Weekly Meeting,TOWER Implementation
-UNIT-001,All,Draft,Do not deploy code with failing unit tests,,,A,,
-UNIT-002,All,Draft,Do not use xfail without writing a github issue to resolve.,,,A,,
-UNIT-003,All,Draft,Do not deploy code without >80% test coverage,,,A,,
-UNIT-004,All,Draft,Do not deploy code without >80% human-reviewed test coverage,,,A,,
