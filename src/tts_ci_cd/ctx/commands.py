@@ -71,10 +71,23 @@ def run_repo(db: IndexDB, repo_name: str):
         return
 
     print(f"## {repo['name']}")
+    summary = repo["summary"] if "summary" in repo.keys() else None
+    if summary and summary != "No summary provided.":
+        print(f"  {summary}")
     print(f"  Type: {repo['type']}")
+    if repo['adapts']:
+        print(f"  Adapts: {repo['adapts']}")
     print(f"  Ownership: {repo['ownership']}")
     print(f"  Remote: {repo['git_remote']}")
     print(f"  Path: {repo['path']}\n")
+
+    structure = db.get_repo_structure(repo_name)
+    print(f"Structure: {structure['module_count']} modules")
+    if structure['subpackages']:
+        print("Sub-packages:")
+        for sp in structure['subpackages']:
+            print(f"  • {sp}")
+    print()
 
     classes = db.get_key_classes_for_repo(repo_name)
     print("Key Classes:")
@@ -88,9 +101,12 @@ def run_class(db: IndexDB, class_path: str, depth: int = 1):
         print(f"Class not found: {class_path}")
         return
 
+    mod = db.get_module_by_id(cls['module_id'])
+    repo_name = mod['repo_name'] if mod else "?"
+
     print(f"## {cls['full_path']}")
     print(f"  \"{cls['doc_summary']}\"")
-    print(f"  Repo: {cls['module_id']}") # simplified
+    print(f"  Repo: {repo_name}")
     print(f"  Public: {cls['is_public']}\n")
 
     print("  MRO:")
@@ -104,23 +120,43 @@ def run_class(db: IndexDB, class_path: str, depth: int = 1):
         methods = db.get_class_methods(cls['id'])
         print("\nMethods:")
         for m in methods:
-            print(f"  • {m['name']} - {m['doc_summary']}")
+            summary = (m['doc_summary'] or "").strip().splitlines()[0] if m['doc_summary'] else ""
+            sig = m['signature'] or "()"
+            print(f"  • {m['name']}{sig}" + (f" - {summary}" if summary else ""))
 
     if depth >= 3:
-        mod = db.get_module_by_id(cls['module_id'])
         if mod:
             print(f"\nSource ({mod['file_path']}):")
-            # In a real tool, we'd read the file and slice by line_start/end
-            print("  [Source code snippet would appear here]")
+            file_path = Path(mod['file_path'])
+            if file_path.exists():
+                lines = file_path.read_text(encoding="utf-8").splitlines()
+                start = max(cls['line_start'] - 1, 0)
+                end = min(cls['line_end'], len(lines))
+                for lineno, line in enumerate(lines[start:end], start=start + 1):
+                    print(f"  {lineno:>5} | {line}")
+            else:
+                print(f"  [File not found: {file_path}]")
 
 def run_search(db: IndexDB, query: str):
-    """Global symbol search."""
+    """Global symbol search, ranked by relevance and grouped by repo."""
     results = db.search_symbols(query)
     print(f"Search: '{query}'\n")
-    print(f"{'Symbol':<60} | {'Kind':<10} | {'Summary'}")
-    print("-" * 100)
+    if not results:
+        print("No matches found.")
+        return
+
+    by_repo: Dict[str, List[Dict]] = {}
     for r in results:
-        print(f"{r['full_path']:<60} | {r['kind']:<10} | {r['doc_summary']}")
+        by_repo.setdefault(r["repo_name"], []).append(r)
+
+    for repo_name, repo_results in by_repo.items():
+        print(f"## {repo_name}")
+        for r in repo_results:
+            summary = (r["doc_summary"] or "").strip().splitlines()[0] if r["doc_summary"] else ""
+            print(f"  • {r['full_path']} ({r['kind']}, matched: {r['matched_on']})")
+            if summary:
+                print(f"      {summary}")
+        print()
 
 def run_deps(db: IndexDB, start_repo: str):
     """Truthful dependency mapping for a library, with mission-aware filtering."""

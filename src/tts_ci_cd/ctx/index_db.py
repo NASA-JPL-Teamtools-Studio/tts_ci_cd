@@ -34,9 +34,15 @@ class IndexDB:
                     ownership TEXT,
                     adapts TEXT,
                     type TEXT,
-                    mission TEXT
+                    mission TEXT,
+                    summary TEXT
                 )
             """)
+            # Retrofit older DBs created before the summary column existed.
+            try:
+                self.conn.execute("ALTER TABLE repos ADD COLUMN summary TEXT")
+            except sqlite3.OperationalError:
+                pass
             # --- Modules (Python files as dotted paths) ---
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS modules (
@@ -115,12 +121,13 @@ class IndexDB:
     # === Insert helpers ===
 
     def add_repo(self, name: str, path: str, group_dir: str, git_remote: Optional[str],
-                  ownership: str, adapts: Optional[str], repo_type: str = "incidental", mission: Optional[str] = None):
+                  ownership: str, adapts: Optional[str], repo_type: str = "incidental", mission: Optional[str] = None,
+                  summary: Optional[str] = None):
         with self.conn:
             self.conn.execute(
-                """INSERT OR REPLACE INTO repos (name, path, group_dir, git_remote, ownership, adapts, type, mission)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (name, path, group_dir, git_remote, ownership, adapts, repo_type, mission),
+                """INSERT OR REPLACE INTO repos (name, path, group_dir, git_remote, ownership, adapts, type, mission, summary)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (name, path, group_dir, git_remote, ownership, adapts, repo_type, mission, summary),
             )
 
     def add_module(self, repo_name: str, dotted_path: str, file_path: str, package_root: str) -> int:
@@ -229,39 +236,76 @@ class IndexDB:
             "SELECT * FROM modules WHERE id = ?", (module_id,)).fetchone()
 
     def search_symbols(self, query: str, repo_filter: Optional[str] = None) -> List[Dict]:
-        """LIKE search across class names, symbol names, doc summaries, and module paths."""
+        """Search across class/symbol names, doc summaries, and module paths.
+
+        Results are ranked: exact name match > name startswith query >
+        name contains query > doc_summary/module path contains query.
+        Each result carries a `matched_on` field explaining the hit.
+        """
         like = f"%{query}%"
         if repo_filter:
             rows = self.conn.execute(
-                """SELECT c.full_path, 'class' AS kind, c.doc_summary
+                """SELECT c.name, c.full_path, 'class' AS kind, c.doc_summary, m.repo_name
                    FROM classes c
                    JOIN modules m ON c.module_id = m.id
                    WHERE (c.name LIKE ? OR c.doc_summary LIKE ? OR m.dotted_path LIKE ?)
                      AND m.repo_name LIKE ?
                    UNION
-                   SELECT s.full_path, s.kind, s.doc_summary
+                   SELECT s.name, s.full_path, s.kind, s.doc_summary, m.repo_name
                    FROM symbols s
                    JOIN modules m ON s.module_id = m.id
                    WHERE (s.name LIKE ? OR s.doc_summary LIKE ? OR m.dotted_path LIKE ?)
-                     AND m.repo_name LIKE ?
-                   ORDER BY kind, full_path LIMIT 30""",
+                     AND m.repo_name LIKE ?""",
                 (like, like, like, f"%{repo_filter}%", like, like, like, f"%{repo_filter}%")
             ).fetchall()
         else:
             rows = self.conn.execute(
-                """SELECT c.full_path, 'class' AS kind, c.doc_summary
+                """SELECT c.name, c.full_path, 'class' AS kind, c.doc_summary, m.repo_name
                    FROM classes c
                    JOIN modules m ON c.module_id = m.id
                    WHERE c.name LIKE ? OR c.doc_summary LIKE ? OR m.dotted_path LIKE ?
                    UNION
-                   SELECT s.full_path, s.kind, s.doc_summary
+                   SELECT s.name, s.full_path, s.kind, s.doc_summary, m.repo_name
                    FROM symbols s
                    JOIN modules m ON s.module_id = m.id
-                   WHERE s.name LIKE ? OR s.doc_summary LIKE ? OR m.dotted_path LIKE ?
-                   ORDER BY kind, full_path LIMIT 30""",
+                   WHERE s.name LIKE ? OR s.doc_summary LIKE ? OR m.dotted_path LIKE ?""",
                 (like, like, like, like, like, like)
             ).fetchall()
-        return [dict(r) for r in rows]
+
+        query_lower = query.lower()
+        results = []
+        for r in rows:
+            name_lower = (r["name"] or "").lower()
+            if name_lower == query_lower:
+                tier, matched_on = 0, "name (exact)"
+            elif name_lower.startswith(query_lower):
+                tier, matched_on = 1, "name (prefix)"
+            elif query_lower in name_lower:
+                tier, matched_on = 2, "name"
+            elif query_lower in (r["doc_summary"] or "").lower():
+                tier, matched_on = 3, "docstring"
+            else:
+                tier, matched_on = 4, "module path"
+            d = dict(r)
+            d["tier"] = tier
+            d["matched_on"] = matched_on
+            results.append(d)
+
+        results.sort(key=lambda d: (d["tier"], d["kind"], d["full_path"]))
+
+        # Cap how many low-relevance (tier 3+) hits can crowd out everything
+        # else -- e.g. a module literally named after the query shouldn't
+        # flood the result list with every symbol it contains.
+        capped: List[Dict] = []
+        tier_counts: Dict[int, int] = {}
+        for d in results:
+            tier_counts[d["tier"]] = tier_counts.get(d["tier"], 0) + 1
+            if d["tier"] >= 3 and tier_counts[d["tier"]] > 8:
+                continue
+            capped.append(d)
+            if len(capped) >= 40:
+                break
+        return capped
 
     def search_classes_by_name(self, name: str) -> List[sqlite3.Row]:
         """Exact-ish match for a class by bare name (used for MRO resolution)."""
@@ -280,6 +324,26 @@ class IndexDB:
     def get_repo_by_name(self, name: str) -> Optional[sqlite3.Row]:
         return self.conn.execute(
             "SELECT * FROM repos WHERE name = ?", (name,)).fetchone()
+
+    def get_repo_structure(self, repo_name: str) -> Dict[str, object]:
+        """Module/package counts and top-level sub-packages for a repo."""
+        modules = self.conn.execute(
+            "SELECT dotted_path, package_root FROM modules WHERE repo_name = ?",
+            (repo_name,)
+        ).fetchall()
+
+        packages = sorted({m["package_root"] for m in modules if m["package_root"]})
+        subpackages: Set[str] = set()
+        for m in modules:
+            parts = (m["dotted_path"] or "").split(".")
+            if len(parts) >= 2:
+                subpackages.add(".".join(parts[:2]))
+
+        return {
+            "module_count": len(modules),
+            "packages": packages,
+            "subpackages": sorted(subpackages),
+        }
 
     def get_key_classes_for_repo(self, repo_name: str, limit: int = 8) -> List[sqlite3.Row]:
         return self.conn.execute(
