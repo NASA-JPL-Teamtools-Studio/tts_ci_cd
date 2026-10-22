@@ -30,6 +30,38 @@ def _get_base_repr(node, current_dotted: str) -> Optional[str]:
     return None
 
 
+def _build_signature(node) -> str:
+    """Build a '(arg1, arg2=default, *args, **kwargs)' style signature string.
+
+    Avoids ast.unparse (Python 3.9+) to respect the 3.6.8 floor.
+    """
+    args = node.args
+    parts: List[str] = []
+
+    num_defaults = len(args.defaults)
+    num_positional = len(args.args)
+    first_default_idx = num_positional - num_defaults
+
+    for i, a in enumerate(args.args):
+        if i >= first_default_idx:
+            parts.append(f"{a.arg}=...")
+        else:
+            parts.append(a.arg)
+
+    if args.vararg:
+        parts.append(f"*{args.vararg.arg}")
+    elif args.kwonlyargs:
+        parts.append("*")
+
+    for a, d in zip(args.kwonlyargs, args.kw_defaults):
+        parts.append(f"{a.arg}=..." if d is not None else a.arg)
+
+    if args.kwarg:
+        parts.append(f"**{args.kwarg.arg}")
+
+    return f"({', '.join(parts)})"
+
+
 def get_summary_from_agents_md(repo_path: Path) -> Optional[str]:
     """Fallback: attempt to scrape the first paragraph of AGENTS.md."""
     agents_md = repo_path / "AGENTS.md"
@@ -43,6 +75,47 @@ def get_summary_from_agents_md(repo_path: Path) -> Optional[str]:
         return lines[0] if lines else None
     except Exception:
         return None
+
+
+def _resolve_inheritance(db: IndexDB) -> None:
+    """Resolve recorded class_bases expressions into the inheritance table.
+
+    Must run after all repos/modules/classes have been indexed, since a
+    base class can live in a different repo than its subclass.
+    """
+    rows = db.conn.execute(
+        """SELECT cb.class_id, cb.base_repr, m.repo_name
+           FROM class_bases cb
+           JOIN classes c ON cb.class_id = c.id
+           JOIN modules m ON c.module_id = m.id"""
+    ).fetchall()
+
+    for row in rows:
+        child_id = row["class_id"]
+        base_repr = row["base_repr"]
+        child_repo = row["repo_name"]
+        bare_name = base_repr.rsplit(".", 1)[-1]
+
+        candidates = db.search_classes_by_name(bare_name)
+        if not candidates:
+            db.add_inheritance_external(child_id, base_repr)
+            continue
+
+        same_repo = []
+        for c in candidates:
+            if not c["module_id"]:
+                continue
+            cand_mod = db.get_module_by_id(c["module_id"])
+            if cand_mod and cand_mod["repo_name"] == child_repo:
+                same_repo.append(c)
+        chosen = same_repo[0] if same_repo else candidates[0]
+
+        if chosen["id"] == child_id:
+            # A class can't be its own parent (e.g. name collision across repos
+            # resolving back to itself); treat as external rather than cyclic.
+            db.add_inheritance_external(child_id, base_repr)
+        else:
+            db.add_inheritance_internal(child_id, chosen["id"])
 
 
 def run_full_index(db: IndexDB) -> None:
@@ -110,8 +183,9 @@ def run_full_index(db: IndexDB) -> None:
         ownership = ownership_category(host, repo_ref.split("/")[0] if repo_ref else None)
         adapts = adapts_map.get(rel_str)
 
-        db.add_repo(repo_name, str(repo_path), "tts_core" if "tts_core/" in rel_str else "mission", 
-                    git_remote=host, ownership=ownership, adapts=adapts, repo_type=repo_type, mission=mission)
+        db.add_repo(repo_name, str(repo_path), "tts_core" if "tts_core/" in rel_str else "mission",
+                    git_remote=host, ownership=ownership, adapts=adapts, repo_type=repo_type, mission=mission,
+                    summary=summary)
 
 
         src_dirs = get_src_dirs(repo_path)
@@ -150,8 +224,10 @@ def run_full_index(db: IndexDB) -> None:
                             for n in node.names:
                                 db.add_import(module_id, n.name, module_name, n.name)
 
-                    # 2. Classes
-                    for node in ast.walk(tree):
+                    # 2. Classes and top-level functions (module.body only, so
+                    # methods inside class bodies aren't double-counted as
+                    # top-level functions).
+                    for node in tree.body:
                         if isinstance(node, ast.ClassDef):
                             class_full_path = f"{dotted}.{node.name}"
                             doc = ast.get_docstring(node) or ""
@@ -172,6 +248,25 @@ def run_full_index(db: IndexDB) -> None:
                                         (class_id, base_repr)
                                     )
 
+                            # Methods (direct children of the class body only,
+                            # so nested/local functions aren't indexed as methods).
+                            for member in node.body:
+                                if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                                    method_full_path = f"{class_full_path}.{member.name}"
+                                    method_doc = ast.get_docstring(member) or ""
+                                    db.add_symbol(
+                                        class_id=class_id,
+                                        module_id=module_id,
+                                        name=member.name,
+                                        full_path=method_full_path,
+                                        signature=_build_signature(member),
+                                        doc_summary=method_doc,
+                                        is_public=not member.name.startswith("_"),
+                                        line_start=member.lineno,
+                                        line_end=getattr(member, 'end_lineno', member.lineno),
+                                        kind='method'
+                                    )
+
                         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                             # Top level functions
                             func_full_path = f"{dotted}.{node.name}"
@@ -181,7 +276,7 @@ def run_full_index(db: IndexDB) -> None:
                                 module_id=module_id,
                                 name=node.name,
                                 full_path=func_full_path,
-                                signature=node.args.args[0].arg if node.args.args else "",
+                                signature=_build_signature(node),
                                 doc_summary=doc,
                                 is_public=not node.name.startswith("_"),
                                 line_start=node.lineno,
@@ -192,6 +287,8 @@ def run_full_index(db: IndexDB) -> None:
                     print(f"  ⚠ Error parsing {py_file}: {e}")
 
         print(f"  ✓ {repo_name} indexed")
+
+    _resolve_inheritance(db)
 
     print("\n--- Indexing Quality Report ---")
     duplicates = {s: rs for s, rs in description_registry.items() if len(rs) > 1}

@@ -64,6 +64,12 @@ def index():
     """Build the symbol index from scratch."""
     commands.run_index()
 
+@app.command("migrate-metadata")
+def migrate_metadata(force: bool = False):
+    """Suggest/apply [tool.tts-ctx] type tags across the workspace."""
+    from tts_ci_cd.ctx.migrate_metadata import run_migration
+    run_migration(force=force)
+
 if __name__ == "__main__":
     app()
 
