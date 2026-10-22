@@ -1,0 +1,9 @@
+generated_at: '2026-05-26T18:29:30.057738'
+gumball: RED
+severity_counts:
+  critical: 0
+  high: 4
+  low: 0
+  moderate: 10
+  unknown: 0
+total_vulnerabilities: 14
