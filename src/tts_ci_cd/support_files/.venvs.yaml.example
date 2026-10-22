@@ -1,0 +1,30 @@
+# .venvs.yaml — Developer-local venv manifest for TTS CI/CD tools
+#
+# HOW TO USE:
+#   1. Copy this file to your workspace root (the directory containing your <group>/<repo> trees)
+#      as `.venvs.yaml`  — OR — copy to your home directory as `~/.tts_venvs.yaml`.
+#   2. Fill in the paths for the Python interpreters you use.
+#   3. Do NOT commit your edited copy. This file is a template; your local copy is private.
+#
+# PRECEDENCE:
+#   Workspace root `.venvs.yaml` takes precedence over `~/.tts_venvs.yaml`.
+#   Use the home-dir file for machine-wide defaults and the workspace file for
+#   project-specific overrides.
+#
+# AGENT BEHAVIOR:
+#   AI agents use the `default` interpreter unless told otherwise. If you are working
+#   in a mission-specific environment and want agents to use a different interpreter,
+#   say so explicitly in the conversation. Do not rely on agents inferring the right
+#   venv from the repo name alone — they will ask if unsure.
+#
+# KEYS:
+#   default     — the interpreter to use when no other context is given
+#   <name>      — any additional named interpreter; use names that match project/mission names
+
+default: ~/projects/tt_studio/dev/venv/tts_dev_p3.14/bin/python
+
+# Alternative Python version (e.g., for testing 3.6 floor compliance)
+tts_dev_p3.6: ~/projects/tt_studio/dev/venv/tts_dev_p3.6/bin/python
+
+# Mission-specific environments — use only when explicitly working in that mission's context
+nisar_dev: ~/projects/tt_studio/dev/venv/nisar_dev/bin/python
