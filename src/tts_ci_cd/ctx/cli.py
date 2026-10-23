@@ -60,6 +60,16 @@ def search(query: str):
     commands.run_search(db, query)
 
 @app.command()
+def analyze(
+    path: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    json_output: bool = False,
+):
+    """Analyze a repository and print a report or stable JSON result."""
+    commands.run_analysis(path, standards_revision, as_json=json_output)
+
+
+@app.command()
 def index():
     """Build the symbol index from scratch."""
     commands.run_index()

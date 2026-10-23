@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 
 from tts_ci_cd.ctx.index_db import IndexDB
 from tts_ci_cd.ctx.config import get_db_path, get_knowledge_dir
+from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -241,6 +242,12 @@ def run_deps(db: IndexDB, start_repo: str):
             elif dep != start_repo:
                 stack.append((dep, depth + 1, prefix + "  "))
 
+
+
+def run_analysis(repository: str, standards_revision: str, as_json: bool = False):
+    """Analyze one repository and render its stable result contract."""
+    result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
 
 
 def run_index():

@@ -33,6 +33,25 @@ A number of command line tools are provided in this library.
 * *tts-dev-setup*: Clones, editably installs, and runs unit tests for any TTS library and its TTS dependencies (or all of them). Bootstrap to get a new development environment set up within ~5 minutes.
 * *tts-doc-builder*: Builds `gh-pages` branch by checking out each active branch and every tag in the repo (except those configured to be ignored). Builds landing page for repo docs. Deploys to gh
 * *tts-deploy-lib*: Deploys library to pypi or artifactory.
+* *tts-ctx*: Analyzes a repository through a versioned result seam and renders a
+  human-readable report or stable JSON for CI and agent integrations.
+
+### Repository analysis
+
+Use the Python seam when embedding analysis in another tool:
+
+```python
+from tts_ci_cd.ctx.analysis import analyze_repository
+
+result = analyze_repository("/path/to/repository")
+print(result.to_json())
+```
+
+The CLI exposes the same result contract:
+
+```bash
+tts-ctx analyze /path/to/repository --json-output
+```
 
 ## Configuration
 
