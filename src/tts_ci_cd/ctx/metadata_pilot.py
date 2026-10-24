@@ -3,7 +3,7 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Dict, Iterable, Mapping, Optional, Tuple, Union
 
 from tts_ci_cd.ctx.analysis import AnalysisFinding
 from tts_ci_cd.ctx.metadata import MarkdownMetadataValidator
@@ -47,6 +47,7 @@ class PilotRepositoryReport:
         return {
             "dirty": self.dirty,
             "findings": [finding.to_dict() for finding in self.findings],
+            "git_state_known": self.migration_status != "git_state_unknown",
             "migration_diff": "",
             "migration_status": self.migration_status,
             "name": self.name,
@@ -94,6 +95,7 @@ class MetadataPilotReport:
                     "- Path: `{}`".format(repository.path),
                     "- Status: `{}`".format(repository.migration_status),
                     "- Dirty: `{}`".format(repository.dirty),
+                    "- Next step: {}".format(self._next_step(repository)),
                     "- Pre-existing changes: {}".format(
                         ", ".join(repository.pre_existing_changes) or "none"
                     ),
@@ -112,6 +114,23 @@ class MetadataPilotReport:
                     lines.append("    - Next step: {}".format(finding.remediation))
             lines.append("")
         return "\n".join(lines)
+
+    @staticmethod
+    def _next_step(repository: PilotRepositoryReport) -> str:
+        """Describe the next human action for one pilot repository.
+
+        Args:
+            repository: Repository report requiring a next-step message.
+        """
+        if repository.migration_status == "missing":
+            return "Provide the expected representative repository path or configuration."
+        if repository.migration_status == "git_state_unknown":
+            return "Resolve the Git status error before considering migration."
+        if repository.migration_status == "blocked_dirty":
+            return "Review and record the pre-existing changes before any migration."
+        if repository.migration_status == "needs_review":
+            return "Review findings and approve deterministic repairs through the grooming skill."
+        return "No metadata findings; retain the report as pilot evidence."
 
 
 class MetadataPilot:
@@ -143,6 +162,9 @@ class MetadataPilot:
                 reports.append(PilotRepositoryReport(name, path, False, (), (), "missing"))
                 continue
             changes = self._git_changes(path)
+            if changes is None:
+                reports.append(PilotRepositoryReport(name, path, False, (), (), "git_state_unknown"))
+                continue
             dirty = bool(changes)
             findings = MarkdownMetadataValidator(path).validate()
             if dirty:
@@ -188,7 +210,7 @@ class MetadataPilot:
             exclude: Repository names that are not representative candidates.
 
         Returns:
-            The first candidate path or a missing placeholder.
+            The preferred candidate path or a missing placeholder.
         """
         excluded = set(exclude or ())
         if not group.is_dir():
@@ -202,10 +224,12 @@ class MetadataPilot:
             for candidate in candidates:
                 if candidate.name == preferred:
                     return candidate
+        if preferred:
+            return group / "missing_{}".format(preferred)
         return candidates[0] if candidates else group / "missing"
 
     @staticmethod
-    def _git_changes(repository: Path) -> Tuple[str, ...]:
+    def _git_changes(repository: Path) -> Optional[Tuple[str, ...]]:
         """Return changed paths from a checkout without modifying it.
 
         Args:
@@ -223,5 +247,5 @@ class MetadataPilot:
                 stderr=subprocess.DEVNULL,
             )
         except (OSError, subprocess.CalledProcessError):
-            return ()
+            return None
         return tuple(sorted(line[3:] if len(line) >= 3 else line for line in output.splitlines() if line))
