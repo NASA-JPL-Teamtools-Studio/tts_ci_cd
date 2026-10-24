@@ -191,6 +191,20 @@ def metadata(
     commands.run_metadata(repository, standards_revision, as_json=json_output)
 
 
+@app.command("metadata-pilot")
+def metadata_pilot(
+    workspace: str = typer.Argument("."),
+    json_output: bool = False,
+) -> None:
+    """Report representative metadata migration readiness without editing files.
+
+    Args:
+        workspace: Workspace root containing representative repositories.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_metadata_pilot(workspace, as_json=json_output)
+
+
 @app.command()
 def index():
     """Build the symbol index from scratch."""

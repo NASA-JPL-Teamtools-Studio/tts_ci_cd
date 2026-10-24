@@ -10,6 +10,7 @@ from tts_ci_cd.ctx.config import get_db_path, get_knowledge_dir
 from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
+from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -380,6 +381,17 @@ def run_read(repository: str, path: str, as_json: bool = False) -> None:
         _print_json("read", repository, {"path": document.path, "revision": document.revision, "text": document.text})
         return
     print(document.text, end="" if document.text.endswith("\n") else "\n")
+
+
+def run_metadata_pilot(workspace: str, as_json: bool = False) -> None:
+    """Report representative metadata migration readiness without editing files.
+
+    Args:
+        workspace: Workspace root containing representative repositories.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    report = MetadataPilot(workspace).report()
+    print(report.to_json() if as_json else report.to_markdown(), end="")
 
 
 def run_index():
