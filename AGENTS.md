@@ -2,6 +2,16 @@
 
 This document tells AI agents how to find skills, documentation, and configuration when working in the `tts_ci_cd` repository.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues for `NASA-JPL-Teamtools-Studio/tts_ci_cd`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+This is a single-context repository: read root `CONTEXT.md` for domain vocabulary and relevant ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+
 ## TTS-wide documentation
 
 Before making decisions that touch broader TTS conventions (testing policy, coding standards, naming, philosophy), read the `teamtools_documentation` repo at `tts_core/teamtools_documentation/` in the workspace. Key files:

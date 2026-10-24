@@ -76,6 +76,106 @@ def analyze(
 
 
 @app.command()
+def tree(
+    repository: str = typer.Argument("."),
+    json_output: bool = False,
+) -> None:
+    """List Markdown documents and their outlines.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_tree(repository, as_json=json_output)
+
+
+@app.command()
+def outline(
+    path: str,
+    repository: str = typer.Option("."),
+    depth: int = typer.Option(1),
+    json_output: bool = False,
+) -> None:
+    """Show a Markdown outline through a selected heading depth.
+
+    Args:
+        path: Markdown path relative to the repository root.
+        repository: Repository or documentation root to inspect.
+        depth: Maximum Markdown heading level to include.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_outline(repository, path, depth, as_json=json_output)
+
+
+@app.command()
+def section(
+    path: str,
+    selector: str,
+    repository: str = typer.Option("."),
+    json_output: bool = False,
+) -> None:
+    """Read a selected Markdown section.
+
+    Args:
+        path: Markdown path relative to the repository root.
+        selector: Heading title or anchor to select.
+        repository: Repository or documentation root to inspect.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_section(repository, path, selector, as_json=json_output)
+
+
+@app.command()
+def follow(
+    source_path: str,
+    target: str,
+    repository: str = typer.Option("."),
+    json_output: bool = False,
+) -> None:
+    """Follow a local link or report an external link without fetching it.
+
+    Args:
+        source_path: Markdown path containing the link.
+        target: Link target to resolve.
+        repository: Repository or documentation root to inspect.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_follow(repository, source_path, target, as_json=json_output)
+
+
+@app.command("doc-search")
+def doc_search(
+    query: str,
+    repository: str = typer.Option("."),
+    json_output: bool = False,
+) -> None:
+    """Search Markdown text, headings, metadata, and links.
+
+    Args:
+        query: Case-insensitive text to locate.
+        repository: Repository or documentation root to inspect.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_doc_search(repository, query, as_json=json_output)
+
+
+@app.command()
+def read(
+    path: str,
+    repository: str = typer.Option("."),
+    json_output: bool = False,
+) -> None:
+    """Read a complete Markdown document.
+
+    Args:
+        path: Markdown path relative to the repository root.
+        repository: Repository or documentation root to inspect.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_read(repository, path, as_json=json_output)
+
+
+@app.command()
 def index():
     """Build the symbol index from scratch."""
     commands.run_index()

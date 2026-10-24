@@ -61,6 +61,11 @@ The CLI exposes the same result contract:
 
 ```bash
 tts-ctx analyze /path/to/repository --json-output
+tts-ctx tree /path/to/repository
+tts-ctx outline docs/guide.md --repository /path/to/repository --depth 2
+tts-ctx section docs/guide.md install --repository /path/to/repository
+tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repository
+tts-ctx doc-search metadata --repository /path/to/repository
 ```
 
 ## Configuration

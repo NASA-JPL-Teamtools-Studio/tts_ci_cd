@@ -1,6 +1,7 @@
 """Command implementations for tts-ctx."""
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Set
@@ -8,6 +9,8 @@ from typing import Dict, List, Optional, Set
 from tts_ci_cd.ctx.index_db import IndexDB
 from tts_ci_cd.ctx.config import get_db_path, get_knowledge_dir
 from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
+from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
+from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -254,6 +257,118 @@ def run_analysis(repository: str, standards_revision: str, as_json: bool = False
     """
     result = analyze_repository(repository, standards_revision=standards_revision)
     print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def _get_traversal(repository: str) -> MarkdownTraversal:
+    """Create Markdown traversal for a repository path."""
+    return MarkdownTraversal(MarkdownResourceCatalog(Path(repository)))
+
+
+def _print_json(operation: str, repository: str, result: object) -> None:
+    """Print a traversal payload inside the shared versioned envelope."""
+    scope = str(Path(repository).expanduser().resolve())
+    revision = _get_traversal(repository).catalog.standards_revision
+    print(TraversalResult(operation, scope, revision, result).to_json())
+
+
+def run_tree(repository: str, as_json: bool = False) -> None:
+    """Render the Markdown document tree for a repository.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    documents = _get_traversal(repository).tree()
+    if as_json:
+        _print_json("tree", repository, [document.to_dict() for document in documents])
+        return
+    for document in documents:
+        print(document.path)
+
+
+def run_outline(repository: str, path: str, depth: int = 1, as_json: bool = False) -> None:
+    """Render a Markdown page outline at a requested heading depth.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        depth: Maximum Markdown heading level to include.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    headings = _get_traversal(repository).outline(path, depth)
+    if as_json:
+        _print_json("outline", repository, [heading.to_dict() for heading in headings])
+        return
+    for heading in headings:
+        print("{} {} #{}".format("  " * (heading.level - 1), heading.title, heading.anchor))
+
+
+def run_section(repository: str, path: str, selector: str, as_json: bool = False) -> None:
+    """Render one Markdown section.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        selector: Heading title or anchor to select.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    section = _get_traversal(repository).section(path, selector)
+    if as_json:
+        _print_json("section", repository, section.to_dict())
+        return
+    print(section.text)
+
+
+def run_follow(repository: str, source_path: str, target: str, as_json: bool = False) -> None:
+    """Follow a local link or report an external link without fetching it.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        source_path: Markdown path containing the link.
+        target: Link target to resolve.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    link = _get_traversal(repository).follow(source_path, target)
+    if as_json:
+        _print_json("follow", repository, link.to_dict())
+        return
+    if link.external:
+        print("External link (not fetched): {}".format(link.target))
+    else:
+        print(link.document.path)
+        if link.anchor:
+            print("#{}".format(link.anchor))
+
+
+def run_doc_search(repository: str, query: str, as_json: bool = False) -> None:
+    """Search Markdown text, headings, metadata, and links.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        query: Case-insensitive text to locate.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    matches = _get_traversal(repository).search(query)
+    if as_json:
+        _print_json("doc-search", repository, [match.to_dict() for match in matches])
+        return
+    for match in matches:
+        print("{}:{} [{}] {}".format(match.path, match.line, match.kind, match.text))
+
+
+def run_read(repository: str, path: str, as_json: bool = False) -> None:
+    """Read a complete Markdown document.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    document = _get_traversal(repository).read(path)
+    if as_json:
+        _print_json("read", repository, {"path": document.path, "revision": document.revision, "text": document.text})
+        return
+    print(document.text, end="" if document.text.endswith("\n") else "\n")
 
 
 def run_index():
