@@ -87,11 +87,12 @@ class MarkdownMetadataValidator:
         section_end = self._section_end(lines, heading_index)
         blocks = self._fenced_blocks(lines, heading_index + 1, section_end)
         yaml_blocks = [block for block in blocks if block[2].strip().lower() == "yaml"]
-        if (
-            len(yaml_blocks) != 1
-            or len(blocks) != 1
-            or not self._metadata_section_is_strict(lines, heading_index + 1, section_end)
-        ):
+        structure_valid = (
+            len(yaml_blocks) == 1
+            and len(blocks) == 1
+            and self._metadata_section_is_strict(lines, heading_index + 1, section_end)
+        )
+        if not structure_valid:
             findings.append(
                 self._finding(
                     "documentation.metadata.malformed",
@@ -114,6 +115,8 @@ class MarkdownMetadataValidator:
                 )
             )
 
+        if not structure_valid:
+            return tuple(findings)
         if not yaml_blocks:
             return tuple(findings)
         yaml_start, yaml_end, _ = yaml_blocks[0]

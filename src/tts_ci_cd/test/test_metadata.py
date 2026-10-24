@@ -106,6 +106,21 @@ class TestMarkdownMetadataValidator:
         assert "documentation.metadata.related_invalid" in codes
         assert (tmp_path / "guide.md").read_text() == original
 
+    def test_structural_failure_does_not_emit_semantic_findings(self, tmp_path: Path) -> None:
+        """Malformed structure is reported without parsing a partial YAML block.
+
+        Args:
+            tmp_path: Temporary repository directory used by the test.
+        """
+        (tmp_path / "mixed.md").write_text(
+            "## TTS Metadata\n\n```yaml\ntts:\n  kind: invalid\n  maturity: invalid\n  summary: \"Valid block.\"\n```\n"
+            "Unexpected trailing content.\n"
+        )
+
+        findings = MarkdownMetadataValidator(tmp_path).validate()
+
+        assert [finding.code for finding in findings] == ["documentation.metadata.malformed", "documentation.metadata.misplaced"]
+
     def test_unclosed_or_extra_metadata_content_is_malformed(self, tmp_path: Path) -> None:
         """An unclosed fence or prose outside the fence cannot pass validation.
 
