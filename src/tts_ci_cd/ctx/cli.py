@@ -212,6 +212,22 @@ def context_validate(
 
 
 @app.command()
+def quality(
+    repository: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    json_output: bool = False,
+) -> None:
+    """Run combined documentation-quality analysis.
+
+    Args:
+        repository: Repository path to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_quality(repository, standards_revision, as_json=json_output)
+
+
+@app.command()
 def metadata(
     repository: str = typer.Argument("."),
     standards_revision: str = "documentation-maintenance-v1",

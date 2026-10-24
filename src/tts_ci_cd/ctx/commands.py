@@ -293,6 +293,18 @@ def run_context_validate(
             print("  - Next step: {}".format(finding.remediation))
 
 
+def run_quality(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Run combined documentation-quality and metadata analysis.
+
+    Args:
+        repository: Path to the repository to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
+    result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
 def run_metadata(repository: str, standards_revision: str, as_json: bool = False) -> None:
     """Validate Markdown metadata through the shared analysis seam.
 

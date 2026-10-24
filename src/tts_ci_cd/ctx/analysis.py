@@ -153,6 +153,9 @@ class RepositoryAnalyzer:
             "test_files": len(test_files),
         }
         findings = metadata_validator.validate()
+        from tts_ci_cd.ctx.documentation_quality import DocumentationQualityAnalyzer
+
+        findings += DocumentationQualityAnalyzer(config.repository).analyze(include_metadata=False)
         return RepositoryAnalysisResult(
             scope=str(config.repository),
             standards_revision=config.standards_revision,
