@@ -13,8 +13,14 @@ class TestRepositoryAnalysis:
     """Verify the public repository-analysis result contract."""
 
     def test_returns_versioned_result_with_stable_json(self, tmp_path: Path) -> None:
-        """A repository analysis exposes stable scope, metrics, and findings."""
-        (tmp_path / "README.md").write_text("# Example\n")
+        """A repository analysis exposes stable scope, metrics, and findings.
+
+        Args:
+            tmp_path: Temporary repository directory used by the test.
+        """
+        (tmp_path / "README.md").write_text(
+            "# Example\n\n## TTS Metadata\n\n```yaml\ntts:\n  kind: repository\n  maturity: baseline\n  summary: \"Example repository.\"\n```\n"
+        )
         (tmp_path / "src.py").write_text("print('ok')\n")
         (tmp_path / "tests").mkdir()
         (tmp_path / "tests" / "test_src.py").write_text("def test_ok(): pass\n")
@@ -52,7 +58,11 @@ class TestRepositoryAnalysis:
         assert result.to_json() == result.to_json()
 
     def test_markdown_report_is_a_cli_facing_integration(self, tmp_path: Path) -> None:
-        """The result can be rendered without exposing analyzer internals."""
+        """The result can be rendered without exposing analyzer internals.
+
+        Args:
+            tmp_path: Temporary repository directory used by the test.
+        """
         result = analyze_repository(tmp_path, standards_revision="standard-v1")
 
         report = render_markdown(result)

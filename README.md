@@ -66,6 +66,7 @@ tts-ctx outline docs/guide.md --repository /path/to/repository --depth 2
 tts-ctx section docs/guide.md install --repository /path/to/repository
 tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repository
 tts-ctx doc-search metadata --repository /path/to/repository
+tts-ctx metadata /path/to/repository --json-output
 ```
 
 ## Configuration

@@ -176,6 +176,22 @@ def read(
 
 
 @app.command()
+def metadata(
+    repository: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    json_output: bool = False,
+) -> None:
+    """Validate Markdown metadata and print a report.
+
+    Args:
+        repository: Repository path to validate.
+        standards_revision: Human-readable revision of the applicable standard.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    commands.run_metadata(repository, standards_revision, as_json=json_output)
+
+
+@app.command()
 def index():
     """Build the symbol index from scratch."""
     commands.run_index()

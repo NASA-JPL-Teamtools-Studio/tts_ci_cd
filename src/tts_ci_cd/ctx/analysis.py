@@ -47,6 +47,7 @@ class AnalysisFinding:
         path: Optional[str] = None,
         line: Optional[int] = None,
         remediation: Optional[str] = None,
+        evidence: Optional[str] = None,
     ) -> None:
         """Create a finding.
 
@@ -57,6 +58,7 @@ class AnalysisFinding:
             path: Optional source path associated with the observation.
             line: Optional source line associated with the observation.
             remediation: Optional guidance for addressing the observation.
+            evidence: Optional source evidence supporting the observation.
         """
         self.code = code
         self.message = message
@@ -64,11 +66,13 @@ class AnalysisFinding:
         self.path = path
         self.line = line
         self.remediation = remediation
+        self.evidence = evidence
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the public JSON representation of this finding."""
         return {
             "code": self.code,
+            "evidence": self.evidence,
             "line": self.line,
             "message": self.message,
             "path": self.path,
@@ -133,7 +137,10 @@ class RepositoryAnalyzer:
             if path.is_file() and ".git" not in path.parts
         )
         python_files = [path for path in files if path.suffix == ".py"]
-        markdown_files = [path for path in files if path.suffix.lower() in (".md", ".markdown")]
+        from tts_ci_cd.ctx.metadata import MarkdownMetadataValidator
+
+        metadata_validator = MarkdownMetadataValidator(config.repository)
+        markdown_files = metadata_validator.markdown_files()
         test_files = [
             path
             for path in python_files
@@ -145,10 +152,12 @@ class RepositoryAnalyzer:
             "python_files": len(python_files),
             "test_files": len(test_files),
         }
+        findings = metadata_validator.validate()
         return RepositoryAnalysisResult(
             scope=str(config.repository),
             standards_revision=config.standards_revision,
             metrics=metrics,
+            findings=findings,
         )
 
 
@@ -200,7 +209,15 @@ def render_markdown(result: RepositoryAnalysisResult) -> str:
                     finding.path,
                     ":{}".format(finding.line) if finding.line is not None else "",
                 )
-            lines.append("- [{}] {}{}".format(finding.severity, finding.message, location))
+            lines.append(
+                "- [{}] `{}`: {}{}".format(
+                    finding.severity, finding.code, finding.message, location
+                )
+            )
+            if finding.evidence:
+                lines.append("  - Evidence: {}".format(finding.evidence))
+            if finding.remediation:
+                lines.append("  - Next step: {}".format(finding.remediation))
     else:
         lines.append("No findings.")
     return "\n".join(lines) + "\n"

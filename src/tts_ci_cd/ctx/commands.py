@@ -1,5 +1,4 @@
 """Command implementations for tts-ctx."""
-from __future__ import annotations
 
 import json
 import sqlite3
@@ -245,6 +244,18 @@ def run_deps(db: IndexDB, start_repo: str):
             elif dep != start_repo:
                 stack.append((dep, depth + 1, prefix + "  "))
 
+
+
+def run_metadata(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Validate Markdown metadata through the shared analysis seam.
+
+    Args:
+        repository: Path to the repository to validate.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
+    result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
 
 
 def run_analysis(repository: str, standards_revision: str, as_json: bool = False) -> None:
