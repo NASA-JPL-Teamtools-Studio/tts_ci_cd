@@ -112,6 +112,70 @@ class TestContextValidation:
         assert result.exit_code == 2
         assert "Expected JSON with scope" in result.output
 
+    def test_exact_structure_distinguishes_missing_and_none(self) -> None:
+        """An absent fact and an explicit null fact are structurally different."""
+        progressive = ContextSnapshot("docs", {}, {}, {})
+        exhaustive = ContextSnapshot("docs", {"headings": None}, {}, {})
+
+        result = ContextValidator().compare(progressive, exhaustive, self._questions())
+
+        assert result.classification == "divergent"
+        assert result.structural_differences == ("headings",)
+
+    def test_divergent_answers_still_report_evidence_gaps(self) -> None:
+        """Divergent conclusions do not suppress independent evidence checks."""
+        progressive = ContextSnapshot("docs", {}, {"purpose": "setup"}, {"purpose": ()})
+        exhaustive = ContextSnapshot("docs", {}, {"purpose": "operations"}, {"purpose": ()})
+
+        result = ContextValidator().compare(progressive, exhaustive, self._questions())
+
+        codes = {finding.code for finding in result.findings}
+        assert "documentation.context.answer_divergence" in codes
+        assert "documentation.context.evidence_gap" in codes
+        assert all(finding.path == "purpose" for finding in result.findings)
+
+    def test_repository_question_set_can_be_loaded_by_cli(self, tmp_path: Path) -> None:
+        """CLI validation can select versioned repository-specific questions."""
+        question_set = tmp_path / "questions.json"
+        question_set.write_text(
+            json.dumps(
+                {
+                    "version": "repo-v1",
+                    "generic": [],
+                    "repository_questions": {
+                        "oco2": [{"id": "safety", "prompt": "Safety?"}]
+                    },
+                }
+            )
+        )
+        snapshot = {
+            "scope": "docs",
+            "structural_facts": {},
+            "answers": {"safety": "preserved"},
+            "evidence": {"safety": ["guide.md"]},
+        }
+        progressive_path = tmp_path / "progressive.json"
+        exhaustive_path = tmp_path / "exhaustive.json"
+        progressive_path.write_text(json.dumps(snapshot))
+        exhaustive_path.write_text(json.dumps(snapshot))
+
+        result = CliRunner().invoke(
+            app,
+            [
+                "context-validate",
+                str(progressive_path),
+                str(exhaustive_path),
+                "--repository",
+                "oco2",
+                "--question-set",
+                str(question_set),
+                "--json-output",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["question_set_version"] == "repo-v1"
+
     def test_missing_context_is_indeterminate_and_cli_is_versioned(self, tmp_path: Path) -> None:
         """Missing context blocks equivalence and is exposed through the CLI."""
         progressive = {

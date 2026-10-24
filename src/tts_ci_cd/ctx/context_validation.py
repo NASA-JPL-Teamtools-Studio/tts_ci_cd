@@ -56,6 +56,35 @@ class ValidationQuestionSet:
         """
         return self.generic + self.repository_questions.get(repository or "", ())
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "ValidationQuestionSet":
+        """Load a versioned question set from JSON-compatible data.
+
+        Args:
+            payload: Mapping containing versioned generic and repository questions.
+        """
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("version"), str):
+            raise ValueError("question set must contain a string version")
+
+        def parse(items: Any) -> Tuple[ValidationQuestion, ...]:
+            if not isinstance(items, list):
+                raise ValueError("question set questions must be arrays")
+            questions = []
+            for item in items:
+                if not isinstance(item, Mapping) or not isinstance(item.get("id"), str) or not isinstance(item.get("prompt"), str):
+                    raise ValueError("each question must contain string id and prompt")
+                questions.append(ValidationQuestion(item["id"], item["prompt"]))
+            return tuple(questions)
+
+        repository_questions = payload.get("repository_questions", {})
+        if not isinstance(repository_questions, Mapping):
+            raise ValueError("repository_questions must be an object")
+        return cls(
+            payload["version"],
+            parse(payload.get("generic", [])),
+            {key: parse(value) for key, value in repository_questions.items()},
+        )
+
 
 class ContextSnapshot:
     """A progressive or exhaustive context observation."""
@@ -204,7 +233,10 @@ class ContextValidator:
         structural_differences = tuple(
             key
             for key in sorted(set(progressive.structural_facts) | set(exhaustive.structural_facts))
-            if progressive.structural_facts.get(key) != exhaustive.structural_facts.get(key)
+            if (
+                (key in progressive.structural_facts) != (key in exhaustive.structural_facts)
+                or progressive.structural_facts.get(key) != exhaustive.structural_facts.get(key)
+            )
         )
         if structural_differences:
             findings.append(
@@ -246,6 +278,13 @@ class ContextValidator:
         for question in questions.for_repository(repository):
             progressive_answer = progressive.answers.get(question.identifier)
             exhaustive_answer = exhaustive.answers.get(question.identifier)
+            evidence_paths = tuple(
+                sorted(
+                    set(progressive.evidence.get(question.identifier, ()))
+                    | set(exhaustive.evidence.get(question.identifier, ()))
+                )
+            )
+            finding_path = evidence_paths[0] if evidence_paths else question.identifier
             if progressive_answer is None or exhaustive_answer is None:
                 missing_sides = []
                 if progressive_answer is None:
@@ -259,7 +298,7 @@ class ContextValidator:
                             question.identifier, " and ".join(missing_sides)
                         ),
                         "Answer the versioned question and cite its source evidence in both contexts.",
-                        question.identifier,
+                        finding_path,
                     )
                 )
             elif progressive_answer != exhaustive_answer:
@@ -268,22 +307,21 @@ class ContextValidator:
                         "documentation.context.answer_divergence",
                         "Question `{}` has different conclusions.".format(question.identifier),
                         "Review both answers and their source evidence.",
-                        question.identifier,
+                        finding_path,
                     )
                 )
-            elif progressive_answer is not None:
-                overlap = set(progressive.evidence.get(question.identifier, ())) & set(
-                    exhaustive.evidence.get(question.identifier, ())
-                )
-                if not overlap:
-                    findings.append(
-                        self._finding(
-                            "documentation.context.evidence_gap",
-                            "Question `{}` has no overlapping evidence.".format(question.identifier),
-                            "Follow local links and cite shared source evidence.",
-                            question.identifier,
-                        )
+            overlap = set(progressive.evidence.get(question.identifier, ())) & set(
+                exhaustive.evidence.get(question.identifier, ())
+            )
+            if not overlap:
+                findings.append(
+                    self._finding(
+                        "documentation.context.evidence_gap",
+                        "Question `{}` has no overlapping evidence.".format(question.identifier),
+                        "Follow local links and cite shared source evidence.",
+                        finding_path,
                     )
+                )
 
         has_divergence = any(
             finding.code.endswith("divergence") for finding in findings

@@ -182,6 +182,7 @@ def context_validate(
     progressive_path: str,
     exhaustive_path: str,
     repository: str = typer.Option(None),
+    question_set: str = typer.Option(None),
     json_output: bool = False,
 ) -> None:
     """Compare targeted and exhaustive documentation-context snapshots.
@@ -190,11 +191,16 @@ def context_validate(
         progressive_path: JSON file containing targeted context evidence.
         exhaustive_path: JSON file containing complete-scope context evidence.
         repository: Optional repository key selecting repository-specific questions.
+        question_set: Optional JSON file containing a versioned question set.
         json_output: Whether to print stable JSON instead of Markdown.
     """
     try:
         commands.run_context_validate(
-            progressive_path, exhaustive_path, as_json=json_output, repository=repository
+            progressive_path,
+            exhaustive_path,
+            as_json=json_output,
+            repository=repository,
+            question_set_path=question_set,
         )
     except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
         typer.echo(

@@ -15,6 +15,7 @@ from tts_ci_cd.ctx.context_validation import (
     DEFAULT_QUESTION_SET,
     ContextSnapshot,
     ContextValidator,
+    ValidationQuestionSet,
 )
 
 def run_start_here(db: IndexDB):
@@ -257,6 +258,7 @@ def run_context_validate(
     exhaustive_path: str,
     as_json: bool = False,
     repository: Optional[str] = None,
+    question_set_path: Optional[str] = None,
 ) -> None:
     """Compare progressive and exhaustive JSON context snapshots.
 
@@ -265,13 +267,18 @@ def run_context_validate(
         exhaustive_path: JSON file containing complete-scope context evidence.
         as_json: Whether to render stable JSON instead of Markdown.
         repository: Optional repository key selecting repository-specific questions.
+        question_set_path: Optional JSON file containing a versioned question set.
     """
     with open(progressive_path, "r") as progressive_file:
         progressive = ContextSnapshot.from_dict(json.load(progressive_file))
     with open(exhaustive_path, "r") as exhaustive_file:
         exhaustive = ContextSnapshot.from_dict(json.load(exhaustive_file))
+    questions = DEFAULT_QUESTION_SET
+    if question_set_path:
+        with open(question_set_path, "r") as question_file:
+            questions = ValidationQuestionSet.from_dict(json.load(question_file))
     result = ContextValidator().compare(
-        progressive, exhaustive, DEFAULT_QUESTION_SET, repository=repository
+        progressive, exhaustive, questions, repository=repository
     )
     if as_json:
         print(result.to_json(), end="")
