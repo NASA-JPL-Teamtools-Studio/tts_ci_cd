@@ -244,8 +244,14 @@ def run_deps(db: IndexDB, start_repo: str):
 
 
 
-def run_analysis(repository: str, standards_revision: str, as_json: bool = False):
-    """Analyze one repository and render its stable result contract."""
+def run_analysis(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Analyze one repository and render its stable result contract.
+
+    Args:
+        repository: Path to the repository to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
     result = analyze_repository(repository, standards_revision=standards_revision)
     print(result.to_json() if as_json else render_markdown(result), end="")
 

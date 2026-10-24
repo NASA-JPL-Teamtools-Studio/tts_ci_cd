@@ -64,8 +64,14 @@ def analyze(
     path: str = typer.Argument("."),
     standards_revision: str = "documentation-maintenance-v1",
     json_output: bool = False,
-):
-    """Analyze a repository and print a report or stable JSON result."""
+) -> None:
+    """Analyze a repository and print a report or stable JSON result.
+
+    Args:
+        path: Repository path to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
     commands.run_analysis(path, standards_revision, as_json=json_output)
 
 

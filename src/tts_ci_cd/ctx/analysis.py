@@ -48,6 +48,16 @@ class AnalysisFinding:
         line: Optional[int] = None,
         remediation: Optional[str] = None,
     ) -> None:
+        """Create a finding.
+
+        Args:
+            code: Stable identifier for the finding.
+            message: Human-readable description of the observation.
+            severity: Severity label for the observation.
+            path: Optional source path associated with the observation.
+            line: Optional source line associated with the observation.
+            remediation: Optional guidance for addressing the observation.
+        """
         self.code = code
         self.message = message
         self.severity = severity
@@ -78,6 +88,15 @@ class RepositoryAnalysisResult:
         findings: Iterable[AnalysisFinding] = (),
         version: str = ANALYSIS_RESULT_VERSION,
     ) -> None:
+        """Create a versioned analysis result.
+
+        Args:
+            scope: Repository or analysis scope represented by the result.
+            standards_revision: Revision of the standards applied to analysis.
+            metrics: Named integer metrics collected by the analyzer.
+            findings: Observations produced by the analyzer.
+            version: Version of the result contract.
+        """
         self.version = version
         self.scope = scope
         self.standards_revision = standards_revision
@@ -103,7 +122,11 @@ class RepositoryAnalyzer:
     """Analyze one repository while hiding analyzer implementation details."""
 
     def analyze(self, config: RepositoryAnalysisConfig) -> RepositoryAnalysisResult:
-        """Return a deterministic baseline analysis for the configured repository."""
+        """Return a deterministic baseline analysis for the configured repository.
+
+        Args:
+            config: Repository and standards configuration for this analysis.
+        """
         files = sorted(
             path
             for path in config.repository.rglob("*")
@@ -134,13 +157,29 @@ def analyze_repository(
     standards_revision: str = DEFAULT_STANDARDS_REVISION,
     resources: Optional[Mapping[str, Any]] = None,
 ) -> RepositoryAnalysisResult:
-    """Analyze a repository through the public repository-scoped seam."""
+    """Analyze a repository through the public repository-scoped seam.
+
+    Args:
+        repository: Directory containing the repository to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        resources: Optional named resources available to analyzers.
+
+    Returns:
+        The versioned result produced for the repository.
+    """
     config = RepositoryAnalysisConfig(repository, standards_revision, resources)
     return RepositoryAnalyzer().analyze(config)
 
 
 def render_markdown(result: RepositoryAnalysisResult) -> str:
-    """Render a human-readable report from a versioned analysis result."""
+    """Render a human-readable report from a versioned analysis result.
+
+    Args:
+        result: Versioned analysis result to render.
+
+    Returns:
+        Human-readable Markdown report text.
+    """
     lines = [
         "# Repository analysis",
         "",

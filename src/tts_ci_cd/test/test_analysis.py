@@ -12,7 +12,7 @@ from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 class TestRepositoryAnalysis:
     """Verify the public repository-analysis result contract."""
 
-    def test_returns_versioned_result_with_stable_json(self, tmp_path: Path):
+    def test_returns_versioned_result_with_stable_json(self, tmp_path: Path) -> None:
         """A repository analysis exposes stable scope, metrics, and findings."""
         (tmp_path / "README.md").write_text("# Example\n")
         (tmp_path / "src.py").write_text("print('ok')\n")
@@ -51,7 +51,7 @@ class TestRepositoryAnalysis:
         }
         assert result.to_json() == result.to_json()
 
-    def test_markdown_report_is_a_cli_facing_integration(self, tmp_path: Path):
+    def test_markdown_report_is_a_cli_facing_integration(self, tmp_path: Path) -> None:
         """The result can be rendered without exposing analyzer internals."""
         result = analyze_repository(tmp_path, standards_revision="standard-v1")
 
