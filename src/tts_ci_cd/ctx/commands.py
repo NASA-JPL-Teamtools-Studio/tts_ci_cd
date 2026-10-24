@@ -11,6 +11,11 @@ from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
 from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
+from tts_ci_cd.ctx.context_validation import (
+    DEFAULT_QUESTION_SET,
+    ContextSnapshot,
+    ContextValidator,
+)
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -245,6 +250,40 @@ def run_deps(db: IndexDB, start_repo: str):
             elif dep != start_repo:
                 stack.append((dep, depth + 1, prefix + "  "))
 
+
+
+def run_context_validate(
+    progressive_path: str,
+    exhaustive_path: str,
+    as_json: bool = False,
+    repository: Optional[str] = None,
+) -> None:
+    """Compare progressive and exhaustive JSON context snapshots.
+
+    Args:
+        progressive_path: JSON file containing targeted context evidence.
+        exhaustive_path: JSON file containing complete-scope context evidence.
+        as_json: Whether to render stable JSON instead of Markdown.
+        repository: Optional repository key selecting repository-specific questions.
+    """
+    with open(progressive_path, "r") as progressive_file:
+        progressive = ContextSnapshot.from_dict(json.load(progressive_file))
+    with open(exhaustive_path, "r") as exhaustive_file:
+        exhaustive = ContextSnapshot.from_dict(json.load(exhaustive_file))
+    result = ContextValidator().compare(
+        progressive, exhaustive, DEFAULT_QUESTION_SET, repository=repository
+    )
+    if as_json:
+        print(result.to_json(), end="")
+        return
+    print("# Context validation", "", sep="\n")
+    print("- Classification: `{}`".format(result.classification))
+    print("- Scope: `{}`".format(result.scope))
+    print("- Question set: `{}`".format(result.question_set_version))
+    for finding in result.findings:
+        print("- `{}`: {}".format(finding.code, finding.message))
+        if finding.remediation:
+            print("  - Next step: {}".format(finding.remediation))
 
 
 def run_metadata(repository: str, standards_revision: str, as_json: bool = False) -> None:

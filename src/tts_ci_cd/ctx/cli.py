@@ -1,4 +1,6 @@
 """CLI entry point for tts-ctx."""
+import json
+
 import typer
 from typing import Optional
 from tts_ci_cd.ctx import commands
@@ -173,6 +175,34 @@ def read(
         json_output: Whether to print stable JSON instead of Markdown.
     """
     commands.run_read(repository, path, as_json=json_output)
+
+
+@app.command("context-validate")
+def context_validate(
+    progressive_path: str,
+    exhaustive_path: str,
+    repository: str = typer.Option(None),
+    json_output: bool = False,
+) -> None:
+    """Compare targeted and exhaustive documentation-context snapshots.
+
+    Args:
+        progressive_path: JSON file containing targeted context evidence.
+        exhaustive_path: JSON file containing complete-scope context evidence.
+        repository: Optional repository key selecting repository-specific questions.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    try:
+        commands.run_context_validate(
+            progressive_path, exhaustive_path, as_json=json_output, repository=repository
+        )
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        typer.echo(
+            "Unable to validate context snapshots: {}. Expected JSON with scope, "
+            "structural_facts, answers, and evidence.".format(error),
+            err=True,
+        )
+        raise typer.Exit(code=2)
 
 
 @app.command()

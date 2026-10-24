@@ -68,7 +68,10 @@ tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repositor
 tts-ctx doc-search metadata --repository /path/to/repository
 tts-ctx metadata /path/to/repository --json-output
 tts-ctx metadata-pilot /path/to/workspace --json-output
+tts-ctx context-validate progressive.json exhaustive.json --json-output
 ```
+
+Context snapshot inputs contain `scope`, `structural_facts`, `answers`, and `evidence`, with optional `missing_context`, `contradictions`, and `traversal_gaps` arrays. Invalid snapshot files return a nonzero CLI status with the expected shape.
 
 ## Configuration
 
