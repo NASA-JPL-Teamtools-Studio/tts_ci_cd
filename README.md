@@ -47,6 +47,16 @@ result = analyze_repository("/path/to/repository")
 print(result.to_json())
 ```
 
+Packaged standards and arbitrary Markdown resources are available without network access:
+
+```python
+from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
+
+catalog = MarkdownResourceCatalog()
+standard = catalog.read_standard()
+print(standard.revision, standard.text)
+```
+
 The CLI exposes the same result contract:
 
 ```bash
