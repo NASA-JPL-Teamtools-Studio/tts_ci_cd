@@ -60,6 +60,7 @@ tts-ctx = "tts_ci_cd.ctx.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
+"tts_ci_cd" = ["ai_skills/*.md"]
 "tts_ci_cd.ctx" = ["knowledge/*.md", "resources/standards/*.md"]
 
 [tool.setuptools_scm]

@@ -38,6 +38,11 @@ Available skills:
 | Skill file | When to use |
 |------------|-------------|
 | `git_hygiene.md` | Developer wants to review and clean up WIP across multiple repos — finding homeless WIP, branch mismatches, unpushed commits, or semantically incoherent branches. |
+| `documentation_grooming.md` | Developer wants to improve, validate, synchronize, or navigate repository documentation; routes to focused grooming workflows. |
+| `metadata_grooming.md` | Developer wants to repair or review visible `TTS Metadata` sections. |
+| `link_grooming.md` | Developer wants to review or repair Markdown links. |
+| `policy_sync.md` | Developer wants to synchronize documentation with central TTS policies. |
+| `documentation_validation.md` | Developer wants deterministic documentation-quality evidence without silent repairs. |
 
 To use a skill: read the `.md` file and follow its steps. Skills are self-contained; each one tells you what CLI tools to call, what to do with the output, and what safeguards to apply.
 
