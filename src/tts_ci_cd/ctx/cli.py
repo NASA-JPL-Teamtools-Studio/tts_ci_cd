@@ -219,6 +219,15 @@ def context_validate(
 
 
 @app.command()
+def pilot(
+    workspace: str = typer.Argument("."),
+    json_output: bool = False,
+) -> None:
+    """Verify the representative standards-first pilot without GitHub Actions."""
+    commands.run_pilot(workspace, as_json=json_output)
+
+
+@app.command()
 def standards(json_output: bool = False) -> None:
     """Explain applicable documentation standards and thresholds."""
     commands.run_standards(as_json=json_output)

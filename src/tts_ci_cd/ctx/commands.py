@@ -14,6 +14,7 @@ from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS
 from tts_ci_cd.ctx.test_quality import TestQualityAnalyzer
 from tts_ci_cd.ctx.quality import QualityPolicy, combined_quality, coverage_result, ranked_result, threshold_violations
 from tts_ci_cd.ctx.aggregation import analyze_scope
+from tts_ci_cd.ctx.pilot import verify_pilot
 from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
 from tts_ci_cd.ctx.context_validation import (
     DEFAULT_QUESTION_SET,
@@ -307,6 +308,12 @@ def run_context_validate(
         print("- `{}`: {}".format(finding.code, finding.message))
         if finding.remediation:
             print("  - Next step: {}".format(finding.remediation))
+
+
+def run_pilot(workspace: str, as_json: bool = False) -> None:
+    """Verify the representative standards-first pilot without editing files."""
+    report = verify_pilot(Path(workspace).expanduser().resolve())
+    print(report.to_json() if as_json else report.to_markdown(), end="")
 
 
 def run_standards(as_json: bool = False) -> None:

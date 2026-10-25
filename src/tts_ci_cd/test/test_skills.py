@@ -1,5 +1,6 @@
 """Behavioral tests for packaged documentation-grooming skills."""
 
+import json
 import os
 import subprocess
 import sys
@@ -81,6 +82,23 @@ class TestDocumentationGroomingSkills:
             "assert 'tts-ctx test-quality' in (root / 'tts_ctx_quality.md').read_text()\n"
         )
         subprocess.run([sys.executable, "-c", script], cwd=str(tmp_path), env=environment, check=True)
+        standards_output = subprocess.check_output(
+            [sys.executable, "-m", "tts_ci_cd.ctx.cli", "standards", "--json-output"],
+            cwd=str(tmp_path),
+            env=environment,
+            universal_newlines=True,
+        )
+        standards = json.loads(standards_output)
+        assert standards["standards_revision"] == "documentation-maintenance-v1"
+        assert standards["policy_ids"]
+        quality_output = subprocess.check_output(
+            [sys.executable, "-m", "tts_ci_cd.ctx.cli", "quality", str(tmp_path), "--json-output"],
+            cwd=str(tmp_path),
+            env=environment,
+            universal_newlines=True,
+        )
+        quality = json.loads(quality_output)
+        assert set(("version", "scope", "standards_revision", "metrics", "findings")) <= set(quality)
 
     def test_focused_workflows_are_independently_invocable(self) -> None:
         """Each focused skill declares human invocation and a completion check."""
