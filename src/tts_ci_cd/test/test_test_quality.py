@@ -98,12 +98,16 @@ class TestTestQualityAnalyzer:
         artifact = tmp_path / "test_files" / "visual.html"
         artifact.parent.mkdir()
         artifact.write_text("<html></html>\n")
-        (tmp_path / "unrelated.sha256").write_text("hash\n")
+        second = tmp_path / "test_files" / "second.html"
+        second.write_text("<html></html>\n")
+        (artifact.with_name(artifact.name + ".sha256")).write_text("hash\n")
 
         result = TestQualityAnalyzer(tmp_path).analyze()
 
-        assert any(finding.code == "testing.inspection.certification_missing" for finding in result.findings)
-        assert result.metrics["certified_inspection_artifacts"] == 0
+        certification_findings = [finding for finding in result.findings if finding.code == "testing.inspection.certification_missing"]
+        assert len(certification_findings) == 1
+        assert certification_findings[0].path == "test_files/second.html"
+        assert result.metrics["certified_inspection_artifacts"] == 1
 
     def test_counts_each_skipped_and_xfailed_test_case(self, tmp_path: Path) -> None:
         """Skip and xfail inventory counts test cases rather than files."""

@@ -1,7 +1,7 @@
 """Deterministic repository, workspace, and related-scope aggregation."""
 
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
 
 from tts_ci_cd.ctx import config
 from tts_ci_cd.ctx.analysis import AnalysisFinding, RepositoryAnalysisResult
@@ -43,28 +43,54 @@ class ScopeResolver:
         target = Path(repository or ".").expanduser().resolve()
         if scope == "current":
             return (self._git_root(target),)
+        repositories = self._repositories()
         if scope == "repository":
             if target.is_dir() and (target / ".git").exists():
                 return (target,)
-            matches = [path for path in config.list_git_repos(self.workspace_root) if path.name == (repository or "")]
-            if matches:
-                return (matches[0],)
-            return ()
+            matches = [path for path in repositories if path.name == (repository or "")]
+            return (matches[0],) if len(matches) == 1 else ()
         if scope == "workspace":
-            return tuple(config.list_git_repos(self.workspace_root))
+            return repositories
         if scope == "related":
-            start = self.resolve("repository", repository)[0] if self.resolve("repository", repository) else None
-            if start is None:
+            starts = self.resolve("repository", repository)
+            if not starts:
                 return ()
-            names = {start.name}
-            core = self.adapts.get(self._relative_name(start)) or self.adapts.get(start.name)
-            if core:
-                names.add(Path(core).name)
-            for child, parent in self.adapts.items():
-                if Path(parent).name in names:
-                    names.add(Path(child).name)
-            return tuple(path for path in config.list_git_repos(self.workspace_root) if path.name in names)
+            by_relative = {self._relative_name(path): path for path in repositories}
+            by_name: Dict[str, List[Path]] = {}
+            for path in repositories:
+                by_name.setdefault(path.name, []).append(path)
+            def match(identity: str) -> Optional[str]:
+                if identity in by_relative:
+                    return identity
+                candidates = by_name.get(Path(identity).name, [])
+                return self._relative_name(candidates[0]) if len(candidates) == 1 else None
+            selected = {self._relative_name(starts[0])}
+            changed = True
+            while changed:
+                changed = False
+                for child, parent in self.adapts.items():
+                    child_id = match(child)
+                    parent_id = match(parent)
+                    if child_id in selected or parent_id in selected:
+                        for identity in (child_id, parent_id):
+                            if identity and identity not in selected:
+                                selected.add(identity)
+                                changed = True
+            return tuple(by_relative[identity] for identity in sorted(selected) if identity in by_relative)
         raise ValueError("unsupported scope: {}".format(scope))
+
+    def _repositories(self) -> Tuple[Path, ...]:
+        """Return deterministic in-scope repositories for this workspace."""
+        discovered = config.list_git_repos(self.workspace_root)
+        names = {path.name for path in discovered}
+        related_names = {Path(item).name for pair in self.adapts.items() for item in pair}
+        in_scope = []
+        for path in discovered:
+            name = path.name
+            adaptation_core = "tts_{}".format(name.split("_", 1)[1]) if "_" in name else ""
+            if name.startswith("tts_") or name in related_names or adaptation_core in names:
+                in_scope.append(path)
+        return tuple(in_scope)
 
     def _git_root(self, path: Path) -> Path:
         current = path if path.is_dir() else path.parent

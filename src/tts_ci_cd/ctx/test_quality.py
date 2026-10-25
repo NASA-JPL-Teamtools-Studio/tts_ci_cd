@@ -109,16 +109,19 @@ class TestQualityAnalyzer:
             for marker, metric in _TEST_MARKERS.items():
                 count = marker_counts.get(marker, 0)
                 metrics[metric] += count
-            if marker_counts.get("inspection", 0) and not self._certified_inspection_artifacts():
-                findings.append(
-                    self._finding(
-                        "testing.inspection.certification_missing",
-                        relative,
-                        1,
-                        "Inspection test has no certified .sha256 artifact.",
-                        "Review the inspection artifact and add its human certification sidecar.",
+        if metrics["inspection_tests"]:
+            for artifact in self._inspection_artifacts():
+                sidecar = artifact.with_name(artifact.name + ".sha256")
+                if not sidecar.is_file():
+                    findings.append(
+                        self._finding(
+                            "testing.inspection.certification_missing",
+                            artifact.relative_to(self.repository).as_posix(),
+                            1,
+                            "Inspection artifact has no certified .sha256 sidecar.",
+                            "Review the inspection artifact and add its human certification sidecar.",
+                        )
                     )
-                )
 
         metrics["certified_inspection_artifacts"] = len(self._certified_inspection_artifacts())
         findings.extend(self._coverage_findings(metrics))

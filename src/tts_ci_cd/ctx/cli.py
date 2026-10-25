@@ -1,5 +1,6 @@
 """CLI entry point for tts-ctx."""
 import json
+from pathlib import Path
 
 import typer
 from typing import Optional
@@ -237,7 +238,7 @@ def quality(
         standards_revision: Human-readable revision of the applicable standard.
         json_output: Whether to print stable JSON instead of Markdown.
     """
-    if scope == "repository":
+    if scope == "repository" and Path(repository).is_dir():
         commands.run_quality(repository, standards_revision, as_json=json_output)
     else:
         commands.run_scope_quality(scope, repository, standards_revision, as_json=json_output)
