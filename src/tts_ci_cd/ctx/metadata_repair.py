@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from tts_ci_cd.ctx.metadata import MarkdownMetadataValidator
 
 
-_KIND_ALIASES = {"guide": "procedure"}
+_KIND_ALIASES = {}
 
 
 class RepairOperation:
@@ -28,11 +28,12 @@ class RepairOperation:
 class RepairPlan:
     """Reviewable in-memory repair plan; creating one never writes files."""
 
-    def __init__(self, repository: Path, operations: Tuple[RepairOperation, ...], diff: str, unresolved: Tuple[str, ...]) -> None:
+    def __init__(self, repository: Path, operations: Tuple[RepairOperation, ...], diff: str, unresolved: Tuple[str, ...], pre_existing_changes: Tuple[str, ...]) -> None:
         self.repository = repository
         self.operations = operations
         self.diff = diff
         self.unresolved = unresolved
+        self.pre_existing_changes = pre_existing_changes
         self.mode = "dry-run"
 
     def to_dict(self) -> dict:
@@ -40,6 +41,7 @@ class RepairPlan:
             "diff": self.diff,
             "mode": self.mode,
             "operations": [operation.to_dict() for operation in self.operations],
+            "pre_existing_changes": list(self.pre_existing_changes),
             "repository": str(self.repository),
             "unresolved": list(self.unresolved),
             "version": "1.0",
@@ -109,13 +111,19 @@ class MetadataRepairEngine:
                     fromfile=str(path), tofile=str(path),
                 )
             )
-        return RepairPlan(self.repository, tuple(operations), "".join(diff_lines), tuple(sorted(unresolved)))
+        return RepairPlan(
+            self.repository,
+            tuple(operations),
+            "".join(diff_lines),
+            tuple(sorted(unresolved)),
+            self._git_changes(),
+        )
 
     def apply(self, plan: RepairPlan, confirm: bool = False) -> RepairResult:
         """Apply a plan only after explicit confirmation, preserving dirty paths."""
         if not confirm:
             raise ValueError("explicit confirmation is required before applying repairs")
-        pre_existing = self._git_changes()
+        pre_existing = plan.pre_existing_changes
         generated = []
         for operation in plan.operations:
             path = self.repository / operation.path

@@ -9,6 +9,7 @@ from typing import Dict, Mapping, Optional, Tuple
 from tts_ci_cd.ctx.analysis import AnalysisFinding
 from tts_ci_cd.ctx.metadata import MarkdownMetadataValidator
 from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
+from tts_ci_cd.ctx.metadata_repair import MetadataRepairEngine
 from tts_ci_cd.ctx.quality import combined_quality
 from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal
@@ -110,6 +111,8 @@ def verify_pilot(workspace_root: Path, targets: Optional[Mapping[str, Path]] = N
         grooming_entry_points = []
         guardrails = {"checked": False}
         build_evidence = {"mkdocs_config_present": False, "mkdocs_build": "not_applicable"}
+        migration_diff = ""
+        schema_gaps = []
         if report.path.is_dir():
             quality = combined_quality(str(report.path), "documentation-maintenance-v1")
             quality_findings = quality.findings
@@ -119,12 +122,17 @@ def verify_pilot(workspace_root: Path, targets: Optional[Mapping[str, Path]] = N
             grooming_entry_points = [str(path.relative_to(report.path)) for path in sorted((report.path / "agent" / "skills").glob("*.md"))] if (report.path / "agent" / "skills").is_dir() else []
             guardrails = _guardrail_evidence(report.path, report.name)
             build_evidence = _build_evidence(report.path)
+            repair_plan = MetadataRepairEngine(report.path).plan()
+            migration_diff = repair_plan.diff
+            schema_gaps = list(repair_plan.unresolved)
         repositories.append({
             "name": report.name,
             "path": str(report.path),
             "dirty": report.dirty,
             "pre_existing_changes": list(report.pre_existing_changes),
             "generated_changes": [],
+            "migration_diff": migration_diff,
+            "schema_gaps": schema_gaps,
             "metadata_findings": len(report.findings),
             "quality_findings": len(quality_findings),
             "markdown_documents": markdown_documents,

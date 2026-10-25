@@ -30,6 +30,8 @@ class TestPilotVerification:
         assert sample["dirty"] is True
         assert "notes.txt" in sample["pre_existing_changes"]
         assert sample["generated_changes"] == []
+        assert "schema_gaps" in sample
+        assert "migration_diff" in sample
         assert payload["no_github_action"] is True
         assert payload["remaining_gaps"]
         assert sample["traversal_documents"] == 1

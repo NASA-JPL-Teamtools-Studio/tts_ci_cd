@@ -31,10 +31,10 @@ class TestMetadataRepairEngine:
 
         plan = MetadataRepairEngine(repository).plan()
 
-        assert len(plan.operations) == 1
-        assert "-  kind: guide" in plan.diff
-        assert "+  kind: procedure" in plan.diff
-        assert "maturity: draft" in plan.diff
+        assert plan.operations == ()
+        assert plan.diff == ""
+        assert "documentation.metadata.invalid_kind" in plan.unresolved
+        assert "maturity: draft" in original
         assert (repository / "guide.md").read_text() == original
 
     def test_apply_requires_confirmation_and_preserves_dirty_boundary(self, tmp_path: Path) -> None:
@@ -49,9 +49,10 @@ class TestMetadataRepairEngine:
             engine.apply(plan)
         result = engine.apply(plan, confirm=True)
 
-        assert "notes.txt" in result.pre_existing_changes
-        assert result.generated_changes == ("guide.md",)
-        assert "kind: procedure" in (repository / "guide.md").read_text()
+        assert "notes.txt" in plan.pre_existing_changes
+        assert result.pre_existing_changes == plan.pre_existing_changes
+        assert result.generated_changes == ()
+        assert "kind: guide" in (repository / "guide.md").read_text()
         assert "maturity: draft" in (repository / "guide.md").read_text()
 
     def test_cli_returns_versioned_repair_plan(self, tmp_path: Path) -> None:
@@ -65,5 +66,6 @@ class TestMetadataRepairEngine:
         assert result.exit_code == 0
         payload = json.loads(result.stdout)
         assert payload["mode"] == "dry-run"
-        assert payload["operations"][0]["rule_id"] == "documentation.metadata.invalid_kind"
+        assert payload["operations"] == []
+        assert "documentation.metadata.invalid_kind" in payload["unresolved"]
         assert "kind: guide" in (repository / "guide.md").read_text()
