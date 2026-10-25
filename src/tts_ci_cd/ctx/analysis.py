@@ -7,6 +7,8 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
 
 
 ANALYSIS_RESULT_VERSION = "1.0"
+SUPPORTED_ANALYSIS_RESULT_VERSIONS = frozenset((ANALYSIS_RESULT_VERSION,))
+_FINDING_SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}
 DEFAULT_STANDARDS_REVISION = "documentation-maintenance-v1"
 RepositoryPath = Union[str, os.PathLike]
 
@@ -101,16 +103,37 @@ class RepositoryAnalysisResult:
             findings: Observations produced by the analyzer.
             version: Version of the result contract.
         """
+        if version not in SUPPORTED_ANALYSIS_RESULT_VERSIONS:
+            raise ValueError("unsupported analysis result version: {}".format(version))
+        if not standards_revision:
+            raise ValueError("standards_revision must not be empty")
         self.version = version
         self.scope = scope
         self.standards_revision = standards_revision
         self.metrics = dict(metrics)
-        self.findings = tuple(findings)
+        self.findings = tuple(
+            sorted(
+                findings,
+                key=lambda finding: (
+                    _FINDING_SEVERITY_ORDER.get(finding.severity, 99),
+                    finding.severity,
+                    finding.code,
+                    finding.path or "",
+                    finding.line or 0,
+                    finding.message,
+                ),
+            )
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Return a JSON-compatible representation with a stable shape."""
+        findings = []
+        for finding in self.findings:
+            payload = finding.to_dict()
+            payload["repository"] = self.scope
+            findings.append(payload)
         return {
-            "findings": [finding.to_dict() for finding in self.findings],
+            "findings": findings,
             "metrics": dict(sorted(self.metrics.items())),
             "scope": self.scope,
             "standards_revision": self.standards_revision,

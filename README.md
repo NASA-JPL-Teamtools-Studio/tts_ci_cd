@@ -68,7 +68,13 @@ tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repositor
 tts-ctx doc-search metadata --repository /path/to/repository
 tts-ctx metadata /path/to/repository --json-output
 tts-ctx kinds
+tts-ctx standards --json-output
 tts-ctx quality /path/to/repository --json-output
+tts-ctx quality /path/to/workspace --scope workspace --json-output
+tts-ctx quality /path/to/repository --scope related --json-output
+tts-ctx coverage /path/to/repository --json-output
+tts-ctx next /path/to/repository --json-output
+tts-ctx check /path/to/repository --strict --json-output
 tts-ctx test-quality /path/to/repository --json-output
 tts-ctx kinds --json-output
 tts-ctx metadata-pilot /path/to/workspace --json-output

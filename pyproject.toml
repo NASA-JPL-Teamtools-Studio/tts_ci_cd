@@ -61,7 +61,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "tts_ci_cd" = ["ai_skills/*.md"]
-"tts_ci_cd.ctx" = ["knowledge/*.md", "resources/standards/*.md"]
+"tts_ci_cd.ctx" = ["knowledge/*.md", "resources/standards/*.md", "resources/standards/*.json"]
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"

@@ -2,7 +2,7 @@
 
 import ast
 import json
-import re
+import sqlite3
 import subprocess
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
@@ -64,14 +64,14 @@ class TestQualityAnalyzer:
             "certified_inspection_artifacts": 0,
             "skipped_tests": 0,
             "xfailed_tests": 0,
+            "coverage_artifact_present": 0,
         }
 
         if run_tests:
             findings.extend(self._run_tests(test_command))
 
-        test_text = "\n".join(path.read_text(encoding="utf-8") for path in test_files)
         source_symbols = self._source_symbols(source_files)
-        referenced_symbols = {symbol for symbol in source_symbols if re.search(r"\b{}\b".format(re.escape(symbol)), test_text)}
+        referenced_symbols = self._referenced_symbols(test_files, source_symbols)
         metrics["public_symbols"] = len(source_symbols)
         metrics["referenced_symbols"] = len(referenced_symbols)
         metrics["unreferenced_symbols"] = len(source_symbols - referenced_symbols)
@@ -105,21 +105,22 @@ class TestQualityAnalyzer:
         for path in test_files:
             text = path.read_text(encoding="utf-8")
             relative = path.relative_to(self.repository).as_posix()
+            marker_counts = self._test_case_marker_counts(text)
             for marker, metric in _TEST_MARKERS.items():
-                count = self._marker_count(text, marker)
+                count = marker_counts.get(marker, 0)
                 metrics[metric] += count
-                if marker == "inspection" and count and not self._certified_artifacts():
-                    findings.append(
-                        self._finding(
-                            "testing.inspection.certification_missing",
-                            relative,
-                            1,
-                            "Inspection test has no certified .sha256 artifact.",
-                            "Review the inspection artifact and add its human certification sidecar.",
-                        )
+            if marker_counts.get("inspection", 0) and not self._certified_inspection_artifacts():
+                findings.append(
+                    self._finding(
+                        "testing.inspection.certification_missing",
+                        relative,
+                        1,
+                        "Inspection test has no certified .sha256 artifact.",
+                        "Review the inspection artifact and add its human certification sidecar.",
                     )
+                )
 
-        metrics["certified_inspection_artifacts"] = len(self._certified_artifacts())
+        metrics["certified_inspection_artifacts"] = len(self._certified_inspection_artifacts())
         findings.extend(self._coverage_findings(metrics))
         ordered_findings = sorted(findings, key=lambda finding: (finding.code, finding.path or "", finding.line or 0, finding.message))
         integer_metrics = {key: value for key, value in metrics.items() if isinstance(value, int)}
@@ -149,6 +150,21 @@ class TestQualityAnalyzer:
                     symbols.add(node.name)
         return symbols
 
+    @staticmethod
+    def _referenced_symbols(paths: Iterable[Path], symbols: Set[str]) -> Set[str]:
+        referenced: Set[str] = set()
+        for path in paths:
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+            except (OSError, SyntaxError):
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in symbols:
+                    referenced.add(node.id)
+                elif isinstance(node, ast.Attribute) and node.attr in symbols:
+                    referenced.add(node.attr)
+        return referenced
+
     def _coverage_findings(self, metrics: Dict[str, Union[int, float]]) -> List[AnalysisFinding]:
         path = self.coverage_path or next((candidate for candidate in (self.repository / "coverage.xml", self.repository / "coverage.json", self.repository / ".coverage") if candidate.exists()), None)
         if path is None:
@@ -167,11 +183,24 @@ class TestQualityAnalyzer:
                 root = ElementTree.fromstring(path.read_text(encoding="utf-8"))
                 metrics["coverage_line_rate"] = float(root.attrib["line-rate"]) * 100.0
                 metrics["coverage_branch_rate"] = float(root.attrib.get("branch-rate", 0.0)) * 100.0
+            elif path.name == ".coverage":
+                self._validate_sqlite_coverage(path)
             else:
                 raise ValueError("unsupported coverage artifact format")
-        except (OSError, KeyError, TypeError, ValueError, ElementTree.ParseError) as error:
-            return [self._finding("testing.coverage.malformed", path.relative_to(self.repository).as_posix(), 1, "Coverage artifact could not be parsed: {}".format(error), "Regenerate a valid coverage XML or JSON artifact.")]
+            metrics["coverage_artifact_present"] = 1
+        except (OSError, KeyError, TypeError, ValueError, sqlite3.Error, ElementTree.ParseError) as error:
+            return [self._finding("testing.coverage.malformed", path.relative_to(self.repository).as_posix(), 1, "Coverage artifact could not be parsed: {}".format(error), "Regenerate a valid coverage XML, JSON, or SQLite .coverage artifact.")]
         return []
+
+    @staticmethod
+    def _validate_sqlite_coverage(path: Path) -> None:
+        connection = sqlite3.connect(str(path))
+        try:
+            tables = {row[0] for row in connection.execute("select name from sqlite_master where type = 'table'")}
+            if not {"file", "line_bits"}.issubset(tables):
+                raise ValueError("SQLite coverage artifact lacks file and line_bits tables")
+        finally:
+            connection.close()
 
     def _run_tests(self, test_command: Optional[Sequence[str]]) -> List[AnalysisFinding]:
         if not test_command:
@@ -184,14 +213,70 @@ class TestQualityAnalyzer:
             return [self._finding("testing.execution.failed", "", 1, "Test command exited with status {}.".format(completed.returncode), "Inspect the test command output and resolve the failing tests.")]
         return []
 
-    def _certified_artifacts(self) -> Tuple[Path, ...]:
-        return tuple(sorted(self.repository.rglob("*.sha256")))
+    def _inspection_artifacts(self) -> Tuple[Path, ...]:
+        return tuple(
+            path
+            for path in sorted(self.repository.rglob("*"))
+            if path.is_file() and path.suffix.lower() in (".html", ".csv") and "test_files" in path.parts
+        )
+
+    def _certified_inspection_artifacts(self) -> Tuple[Path, ...]:
+        return tuple(
+            artifact
+            for artifact in self._inspection_artifacts()
+            if artifact.with_name(artifact.name + ".sha256").is_file()
+        )
 
     @staticmethod
-    def _marker_count(text: str, marker: str) -> int:
-        if marker in ("skip", "xfail"):
-            return int(bool(re.search(r"pytest\.skip|pytest\.mark\.{}\b".format(marker), text)))
-        return int("pytest.mark.{}".format(marker) in text)
+    def _test_case_marker_counts(text: str) -> Dict[str, int]:
+        counts = {marker: 0 for marker in _TEST_MARKERS}
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            return counts
+
+        def visit(statements: Iterable[ast.stmt], inherited: Set[str]) -> None:
+            for statement in statements:
+                if isinstance(statement, ast.ClassDef):
+                    class_markers = inherited | {
+                        TestQualityAnalyzer._decorator_name(decorator)
+                        for decorator in statement.decorator_list
+                    }
+                    visit(statement.body, class_markers)
+                elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    markers = inherited | {
+                        TestQualityAnalyzer._decorator_name(decorator)
+                        for decorator in statement.decorator_list
+                    }
+                    if statement.name.startswith("test"):
+                        if "unreviewed_ai" in markers:
+                            counts["unreviewed_ai"] += 1
+                        if "inspection" in markers:
+                            counts["inspection"] += 1
+                        if {"skip", "skipif"} & markers or TestQualityAnalyzer._calls_marker(statement, "skip"):
+                            counts["skip"] += 1
+                        if "xfail" in markers or TestQualityAnalyzer._calls_marker(statement, "xfail"):
+                            counts["xfail"] += 1
+
+        visit(tree.body, set())
+        return counts
+
+    @staticmethod
+    def _decorator_name(node: ast.AST) -> str:
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        if isinstance(node, ast.Call):
+            return TestQualityAnalyzer._decorator_name(node.func)
+        return ""
+
+    @staticmethod
+    def _calls_marker(node: ast.AST, marker: str) -> bool:
+        return any(
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr == marker
+            for child in ast.walk(node)
+        )
 
     @staticmethod
     def _is_test(path: Path) -> bool:

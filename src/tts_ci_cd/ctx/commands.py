@@ -12,6 +12,8 @@ from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
 from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS
 from tts_ci_cd.ctx.test_quality import TestQualityAnalyzer
+from tts_ci_cd.ctx.quality import QualityPolicy, combined_quality, coverage_result, ranked_result, threshold_violations
+from tts_ci_cd.ctx.aggregation import analyze_scope
 from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
 from tts_ci_cd.ctx.context_validation import (
     DEFAULT_QUESTION_SET,
@@ -307,6 +309,44 @@ def run_context_validate(
             print("  - Next step: {}".format(finding.remediation))
 
 
+def run_standards(as_json: bool = False) -> None:
+    """Explain the packaged standards, identifiers, thresholds, and revision."""
+    policy = QualityPolicy.load()
+    payload = policy.to_dict()
+    payload["standards_revision"] = policy.revision
+    payload["standard_path"] = "standards/documentation_maintenance.md"
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# TTS standards\n")
+    print("- Revision: `{}`".format(policy.revision))
+    print("- Standard: `{}`".format(payload["standard_path"]))
+    print("- Policy IDs: {}".format(", ".join(policy.policy_ids)))
+    print("- Thresholds:")
+    for name, value in sorted(policy.thresholds.items()):
+        print("  - {}: {}".format(name, value))
+
+
+def run_scope_quality(
+    scope: str,
+    repository: Optional[str],
+    standards_revision: str,
+    as_json: bool = False,
+) -> None:
+    """Run combined quality analysis over a resolved scope."""
+    result = analyze_scope(scope, repository, standards_revision)
+    if as_json:
+        print(result.to_json(), end="")
+        return
+    print("# Scope quality analysis\n")
+    print("- Scope: `{}`".format(result.scope))
+    print("- Repositories: {}".format(len(result.repositories)))
+    for repository_result in result.repositories:
+        print(render_markdown(repository_result), end="")
+    for finding in result.findings:
+        print("- `{}`: {}".format(finding.code, finding.message))
+
+
 def run_quality(repository: str, standards_revision: str, as_json: bool = False) -> None:
     """Run combined documentation-quality and metadata analysis.
 
@@ -315,8 +355,44 @@ def run_quality(repository: str, standards_revision: str, as_json: bool = False)
         standards_revision: Human-readable revision of the applicable standard.
         as_json: Whether to render the result as JSON instead of Markdown.
     """
-    result = analyze_repository(repository, standards_revision=standards_revision)
+    result = combined_quality(repository, standards_revision)
     print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_coverage(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Render coverage-focused documentation and testing metrics."""
+    result = coverage_result(repository, standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_next(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Render ranked actionable findings."""
+    result = ranked_result(repository, standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_check(
+    repository: str,
+    standards_revision: str,
+    strict: bool = False,
+    as_json: bool = False,
+) -> bool:
+    """Render diagnostics and return whether strict policy thresholds are violated."""
+    result = combined_quality(repository, standards_revision)
+    policy = QualityPolicy.load()
+    violations = threshold_violations(result, policy)
+    if as_json:
+        payload = result.to_dict()
+        payload["strict"] = strict
+        payload["threshold_violations"] = list(violations)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(render_markdown(result), end="")
+        if violations:
+            print("\n## Threshold violations\n")
+            for violation in violations:
+                print("- {}".format(violation))
+    return strict and bool(violations)
 
 
 def run_test_quality(

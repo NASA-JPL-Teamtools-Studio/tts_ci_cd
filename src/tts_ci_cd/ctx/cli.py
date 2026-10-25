@@ -218,9 +218,16 @@ def context_validate(
 
 
 @app.command()
+def standards(json_output: bool = False) -> None:
+    """Explain applicable documentation standards and thresholds."""
+    commands.run_standards(as_json=json_output)
+
+
+@app.command()
 def quality(
     repository: str = typer.Argument("."),
     standards_revision: str = "documentation-maintenance-v1",
+    scope: str = typer.Option("repository"),
     json_output: bool = False,
 ) -> None:
     """Run combined documentation-quality analysis.
@@ -230,7 +237,42 @@ def quality(
         standards_revision: Human-readable revision of the applicable standard.
         json_output: Whether to print stable JSON instead of Markdown.
     """
-    commands.run_quality(repository, standards_revision, as_json=json_output)
+    if scope == "repository":
+        commands.run_quality(repository, standards_revision, as_json=json_output)
+    else:
+        commands.run_scope_quality(scope, repository, standards_revision, as_json=json_output)
+
+
+@app.command()
+def coverage(
+    repository: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    json_output: bool = False,
+) -> None:
+    """Report documentation and test coverage metrics."""
+    commands.run_coverage(repository, standards_revision, as_json=json_output)
+
+
+@app.command()
+def next(
+    repository: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    json_output: bool = False,
+) -> None:
+    """Rank actionable quality findings."""
+    commands.run_next(repository, standards_revision, as_json=json_output)
+
+
+@app.command()
+def check(
+    repository: str = typer.Argument("."),
+    standards_revision: str = "documentation-maintenance-v1",
+    strict: bool = typer.Option(False),
+    json_output: bool = False,
+) -> None:
+    """Report quality diagnostics and optionally apply policy thresholds."""
+    if commands.run_check(repository, standards_revision, strict=strict, as_json=json_output):
+        raise typer.Exit(code=1)
 
 
 @app.command("test-quality")

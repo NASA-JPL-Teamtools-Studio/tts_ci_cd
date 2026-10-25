@@ -1,6 +1,7 @@
 """Behavioral tests for deterministic test-quality analysis."""
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -25,9 +26,10 @@ class TestTestQualityAnalyzer:
         tests.write_text(
             "import pytest\n"
             "@pytest.mark.unreviewed_ai\n"
-            "@pytest.mark.inspection\n"
-            "@pytest.mark.xfail\n"
-            "def test_calculate():\n    pytest.skip('pending')\n"
+            "class TestVisual:\n"
+            "    @pytest.mark.inspection\n"
+            "    @pytest.mark.xfail\n"
+            "    def test_calculate(self):\n        pytest.skip('pending')\n"
         )
         artifact = tmp_path / "test_files" / "sample.html"
         artifact.parent.mkdir()
@@ -69,6 +71,69 @@ class TestTestQualityAnalyzer:
         )
 
         assert not any(finding.code == "testing.execution.failed" for finding in result.findings)
+
+    def test_consumes_sqlite_coverage_artifact_without_running_tests(self, tmp_path: Path) -> None:
+        """The standard .coverage runtime artifact is consumed as evidence."""
+        artifact = tmp_path / ".coverage"
+        connection = sqlite3.connect(str(artifact))
+        connection.execute("create table file (id integer, path text)")
+        connection.execute("create table line_bits (file_id integer, numbits integer, bits blob)")
+        connection.commit()
+        connection.close()
+
+        result = TestQualityAnalyzer(tmp_path).analyze()
+
+        assert result.metrics["coverage_artifact_present"] == 1
+        assert not any(finding.code == "testing.coverage.malformed" for finding in result.findings)
+
+    def test_requires_a_sidecar_for_the_specific_inspection_artifact(self, tmp_path: Path) -> None:
+        """An unrelated hash file cannot certify an inspection artifact."""
+        tests = tmp_path / "tests" / "test_visual.py"
+        tests.parent.mkdir()
+        tests.write_text(
+            "import pytest\n"
+            "@pytest.mark.inspection\n"
+            "def test_visual():\n    pass\n"
+        )
+        artifact = tmp_path / "test_files" / "visual.html"
+        artifact.parent.mkdir()
+        artifact.write_text("<html></html>\n")
+        (tmp_path / "unrelated.sha256").write_text("hash\n")
+
+        result = TestQualityAnalyzer(tmp_path).analyze()
+
+        assert any(finding.code == "testing.inspection.certification_missing" for finding in result.findings)
+        assert result.metrics["certified_inspection_artifacts"] == 0
+
+    def test_counts_each_skipped_and_xfailed_test_case(self, tmp_path: Path) -> None:
+        """Skip and xfail inventory counts test cases rather than files."""
+        tests = tmp_path / "tests" / "test_cases.py"
+        tests.parent.mkdir()
+        tests.write_text(
+            "import pytest\n"
+            "@pytest.mark.xfail\n"
+            "def test_one():\n    pytest.skip('one')\n"
+            "@pytest.mark.xfail\n"
+            "def test_two():\n    pytest.skip('two')\n"
+        )
+
+        result = TestQualityAnalyzer(tmp_path).analyze()
+
+        assert result.metrics["skipped_tests"] == 2
+        assert result.metrics["xfailed_tests"] == 2
+
+    def test_symbol_evidence_ignores_comments_and_strings(self, tmp_path: Path) -> None:
+        """Symbol evidence comes from AST references rather than raw text."""
+        source = tmp_path / "sample.py"
+        source.write_text("def calculate(value):\n    return value\n")
+        tests = tmp_path / "tests" / "test_sample.py"
+        tests.parent.mkdir()
+        tests.write_text("def test_note():\n    # calculate appears only in a comment\n    return 'calculate'\n")
+
+        result = TestQualityAnalyzer(tmp_path).analyze()
+
+        assert result.metrics["referenced_symbols"] == 0
+        assert any(finding.code == "testing.inventory.symbol_reference_missing" for finding in result.findings)
 
     def test_cli_exposes_test_quality_as_shared_versioned_result(self, tmp_path: Path) -> None:
         """The CLI exposes stable JSON for test-quality analysis."""
