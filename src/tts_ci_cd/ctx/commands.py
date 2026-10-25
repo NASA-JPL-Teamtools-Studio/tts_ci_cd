@@ -11,6 +11,7 @@ from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
 from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS
+from tts_ci_cd.ctx.metadata_repair import MetadataRepairEngine
 from tts_ci_cd.ctx.test_quality import TestQualityAnalyzer
 from tts_ci_cd.ctx.quality import QualityPolicy, combined_quality, coverage_result, ranked_result, threshold_violations
 from tts_ci_cd.ctx.aggregation import analyze_scope
@@ -375,7 +376,17 @@ def run_coverage(repository: str, standards_revision: str, as_json: bool = False
 def run_next(repository: str, standards_revision: str, as_json: bool = False) -> None:
     """Render ranked actionable findings."""
     result = ranked_result(repository, standards_revision)
-    print(result.to_json() if as_json else render_markdown(result), end="")
+    if as_json:
+        payload = result.to_dict()
+        payload["ranked_findings"] = [
+            dict(finding, rank=index)
+            for index, finding in enumerate(payload["findings"], 1)
+        ]
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# Ranked next work\n")
+    for index, finding in enumerate(result.findings, 1):
+        print("{}. `{}` {} — {}".format(index, finding.code, finding.path or "scope", finding.remediation or finding.message))
 
 
 def run_check(
@@ -414,6 +425,18 @@ def run_test_quality(
         run_tests=run_tests, test_command=test_command
     )
     print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_metadata_repair(repository: str, confirm: bool = False, as_json: bool = False) -> None:
+    """Plan metadata repairs, or apply them only with explicit confirmation."""
+    engine = MetadataRepairEngine(repository)
+    plan = engine.plan()
+    if confirm:
+        result = engine.apply(plan, confirm=True)
+        payload = result.to_dict()
+        print(json.dumps(payload, indent=2, sort_keys=True) if as_json else "Applied {} repairs.\n".format(len(result.generated_changes)), end="" if as_json else "")
+        return
+    print(plan.to_json() if as_json else plan.diff, end="")
 
 
 def run_metadata(repository: str, standards_revision: str, as_json: bool = False) -> None:

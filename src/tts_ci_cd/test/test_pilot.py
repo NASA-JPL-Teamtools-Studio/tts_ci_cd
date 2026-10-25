@@ -32,6 +32,9 @@ class TestPilotVerification:
         assert sample["generated_changes"] == []
         assert payload["no_github_action"] is True
         assert payload["remaining_gaps"]
+        assert sample["traversal_documents"] == 1
+        assert sample["grooming_entry_points"] == []
+        assert any(finding["code"] == "documentation.metadata.missing" for finding in payload["findings"])
 
     def test_cli_returns_versioned_pilot_report(self, tmp_path: Path) -> None:
         """The pilot CLI exposes stable JSON without editing the workspace."""

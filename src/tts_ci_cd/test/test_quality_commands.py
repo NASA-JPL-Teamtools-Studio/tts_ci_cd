@@ -48,8 +48,10 @@ class TestQualityCommands:
         assert next_result.exit_code == 0
         assert report_check.exit_code == 0
         assert strict_check.exit_code == 1
-        findings = json.loads(next_result.stdout)["findings"]
+        next_payload = json.loads(next_result.stdout)
+        findings = next_payload["findings"]
         assert findings == sorted(findings, key=lambda item: (item["severity"], item["code"], item["path"] or "", item["line"] or 0))
+        assert [item["rank"] for item in next_payload["ranked_findings"]] == list(range(1, len(findings) + 1))
 
     def test_result_rejects_unsupported_versions_and_empty_revisions(self, tmp_path: Path) -> None:
         """The public result seam rejects invalid contract configuration."""

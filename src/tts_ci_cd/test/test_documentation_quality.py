@@ -47,6 +47,22 @@ class TestDocumentationQualityAnalyzer:
         assert all(finding.path for finding in findings)
         assert all(finding.remediation for finding in findings)
 
+    def test_reports_nested_public_definitions(self, tmp_path: Path) -> None:
+        """Nested public classes and functions are included in API evidence."""
+        (tmp_path / "nested.py").write_text(
+            "class Outer:\n"
+            "    class Inner:\n"
+            "        def method(self):\n"
+            "            pass\n"
+            "    def function(self):\n"
+            "        pass\n"
+        )
+
+        codes = {finding.code for finding in DocumentationQualityAnalyzer(tmp_path).analyze(include_metadata=False)}
+
+        assert "documentation.api.class_missing" in codes
+        assert "documentation.api.method_missing" in codes
+
     def test_quality_cli_uses_shared_result_contract(self, tmp_path: Path) -> None:
         """The quality command returns versioned findings JSON."""
         (tmp_path / "library.py").write_text("def public_function():\n    pass\n")

@@ -313,6 +313,16 @@ def test_quality(
     )
 
 
+@app.command("metadata-repair")
+def metadata_repair(
+    repository: str = typer.Argument("."),
+    confirm: bool = typer.Option(False),
+    json_output: bool = False,
+) -> None:
+    """Plan mechanical metadata repairs; write only with --confirm."""
+    commands.run_metadata_repair(repository, confirm=confirm, as_json=json_output)
+
+
 @app.command()
 def metadata(
     repository: str = typer.Argument("."),

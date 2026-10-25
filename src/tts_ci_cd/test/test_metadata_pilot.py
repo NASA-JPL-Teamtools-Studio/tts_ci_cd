@@ -38,6 +38,15 @@ class TestMetadataPilot:
         assert central_report.migration_status == "blocked_dirty"
         assert report.repositories[2].migration_status == "missing"
 
+    def test_non_git_target_is_not_reported_as_validated(self, tmp_path: Path) -> None:
+        """A plain directory has unknown Git state."""
+        target = tmp_path / "plain"
+        target.mkdir()
+
+        report = MetadataPilot(tmp_path, {"plain": target}).report()
+
+        assert report.repositories[0].migration_status == "git_state_unknown"
+
     def test_cli_pilot_returns_stable_json(self, tmp_path: Path) -> None:
         """The pilot CLI reports the configured representative scope."""
         result = CliRunner().invoke(

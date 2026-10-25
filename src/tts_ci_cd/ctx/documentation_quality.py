@@ -68,14 +68,13 @@ class DocumentationQualityAnalyzer:
         except (OSError, SyntaxError) as error:
             return (self._finding("documentation.api.parse_error", relative_path, 1, str(error), "Fix the source parse error."),)
         findings: List[AnalysisFinding] = []
-        for node in tree.body:
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
                 findings.extend(self._check_definition(node, relative_path, "class"))
-                for member in node.body:
-                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)) and not member.name.startswith("_"):
-                        findings.extend(self._check_definition(member, relative_path, "method"))
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
-                findings.extend(self._check_definition(node, relative_path, "function"))
+                kind = "method" if isinstance(parents.get(node), ast.ClassDef) else "function"
+                findings.extend(self._check_definition(node, relative_path, kind))
         return tuple(findings)
 
     def _check_definition(self, node: Union[ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef], path: str, kind: str) -> Tuple[AnalysisFinding, ...]:

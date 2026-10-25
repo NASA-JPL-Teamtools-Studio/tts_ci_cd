@@ -188,11 +188,14 @@ class TestQualityAnalyzer:
                 metrics["coverage_branch_rate"] = float(root.attrib.get("branch-rate", 0.0)) * 100.0
             elif path.name == ".coverage":
                 self._validate_sqlite_coverage(path)
+                metrics["coverage_rate_unavailable"] = 1
             else:
                 raise ValueError("unsupported coverage artifact format")
             metrics["coverage_artifact_present"] = 1
         except (OSError, KeyError, TypeError, ValueError, sqlite3.Error, ElementTree.ParseError) as error:
             return [self._finding("testing.coverage.malformed", path.relative_to(self.repository).as_posix(), 1, "Coverage artifact could not be parsed: {}".format(error), "Regenerate a valid coverage XML, JSON, or SQLite .coverage artifact.")]
+        if path.name == ".coverage":
+            return [self._finding("testing.coverage.rate_unavailable", path.relative_to(self.repository).as_posix(), 1, "SQLite coverage artifact is valid but does not expose a line-rate metric to this analyzer.", "Provide coverage XML or JSON when a strict coverage-rate threshold must be evaluated.")]
         return []
 
     @staticmethod

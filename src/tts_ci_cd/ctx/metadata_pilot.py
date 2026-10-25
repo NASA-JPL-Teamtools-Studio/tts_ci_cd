@@ -239,7 +239,7 @@ class MetadataPilot:
             Sorted repository-relative changed paths.
         """
         if not (repository / ".git").exists():
-            return ()
+            return None
         try:
             output = subprocess.check_output(
                 ["git", "-C", str(repository), "status", "--short"],
