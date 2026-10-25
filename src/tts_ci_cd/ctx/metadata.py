@@ -13,7 +13,19 @@ from tts_ci_cd.ctx.analysis import AnalysisFinding
 _METADATA_HEADING_RE = re.compile(r"^\s*##\s+TTS Metadata\s*$", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^\s*#{1,6}\s+")
 _FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
-_VALID_KINDS = {"standard", "guide", "reference", "repository", "glossary", "roadmap", "incidental"}
+DOCUMENT_KINDS = {
+    "standard": "Defines rules, constraints, policies, or required conventions.",
+    "procedure": "Explains how a human performs a task or follows a workflow.",
+    "agent_skill": "Provides an agent-executable playbook with invocation metadata, steps, guardrails, and completion criteria.",
+    "reference": "Provides factual or lookup-oriented information without primarily prescribing behavior.",
+    "training": "Builds knowledge or skill through structured learning material, exercises, or assessment.",
+    "repository": "Orients readers to a repository's purpose, layout, audience, workflow, and entry points.",
+    "glossary": "Defines domain terms and distinguishes overloaded or commonly confused meanings.",
+    "roadmap": "Describes intended future work, sequencing, priorities, or planned capabilities.",
+    "decision_record": "Records an architectural or governance decision, including context, alternatives, consequences, and status.",
+    "incidental": "Is in scope for inventory but is not intended to be maintained as a documentation artifact.",
+}
+_VALID_KINDS = set(DOCUMENT_KINDS)
 _VALID_MATURITY = {"draft", "preliminary", "baseline", "released", "retired"}
 _REQUIRED_FIELDS = ("kind", "maturity", "summary")
 _EXCLUDED_DIRS = {".git", ".pytest_cache", "build", "dist", "__pycache__"}

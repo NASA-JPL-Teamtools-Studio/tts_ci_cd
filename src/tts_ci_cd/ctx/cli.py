@@ -9,6 +9,12 @@ from tts_ci_cd.ctx.index_db import IndexDB
 app = typer.Typer(help="TTS Workspace Context Navigator")
 
 @app.command()
+def kinds(json_output: bool = False) -> None:
+    """List document kinds and their definitions."""
+    commands.run_kinds(as_json=json_output)
+
+
+@app.command()
 def start_here():
     """Bootstrap orientation: workspace overview and navigation menu."""
     db = IndexDB()
@@ -225,6 +231,34 @@ def quality(
         json_output: Whether to print stable JSON instead of Markdown.
     """
     commands.run_quality(repository, standards_revision, as_json=json_output)
+
+
+@app.command("test-quality")
+def test_quality(
+    repository: str = typer.Argument("."),
+    coverage_path: Optional[str] = typer.Option(None),
+    run_tests: bool = typer.Option(False),
+    test_command: Optional[str] = typer.Option(None),
+    json_output: bool = False,
+) -> None:
+    """Analyze test inventory, markers, certification, and coverage evidence.
+
+    Args:
+        repository: Repository path to analyze.
+        coverage_path: Optional coverage XML or JSON artifact.
+        run_tests: Whether to run the explicit test command first.
+        test_command: Shell-like test command used only with run_tests.
+        json_output: Whether to print stable JSON instead of Markdown.
+    """
+    import shlex
+
+    commands.run_test_quality(
+        repository,
+        coverage_path=coverage_path,
+        run_tests=run_tests,
+        test_command=shlex.split(test_command) if test_command else None,
+        as_json=json_output,
+    )
 
 
 @app.command()

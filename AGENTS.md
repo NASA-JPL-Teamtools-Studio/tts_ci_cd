@@ -38,6 +38,8 @@ Available skills:
 | Skill file | When to use |
 |------------|-------------|
 | `git_hygiene.md` | Developer wants to review and clean up WIP across multiple repos — finding homeless WIP, branch mismatches, unpushed commits, or semantically incoherent branches. |
+| `documentation_grooming.md` | Developer wants to improve, validate, synchronize, or navigate repository documentation. |
+| `tts_ctx_quality.md` | Developer wants deterministic `tts-ctx` quality evidence, an inference-space boundary, and candidate follow-up extraction tickets. |
 | `documentation_grooming.md` | Developer wants to improve, validate, synchronize, or navigate repository documentation; routes to focused grooming workflows. |
 | `metadata_grooming.md` | Developer wants to repair or review visible `TTS Metadata` sections. |
 | `link_grooming.md` | Developer wants to review or repair Markdown links. |

@@ -7,14 +7,14 @@ import pytest
 from typer.testing import CliRunner
 
 from tts_ci_cd.ctx.cli import app
-from tts_ci_cd.ctx.metadata import MarkdownMetadataValidator
+from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS, MarkdownMetadataValidator
 
 
 _VALID_METADATA = """## TTS Metadata
 
 ```yaml
 tts:
-  kind: guide
+  kind: procedure
   maturity: baseline
   summary: "A guide."
   related:
@@ -128,13 +128,13 @@ class TestMarkdownMetadataValidator:
             tmp_path: Temporary repository directory used by the test.
         """
         (tmp_path / "unclosed.md").write_text(
-            "## TTS Metadata\n\n```yaml\ntts:\n  kind: guide\n  maturity: baseline\n  summary: \"Guide.\"\n"
+            "## TTS Metadata\n\n```yaml\ntts:\n  kind: procedure\n  maturity: baseline\n  summary: \"Guide.\"\n"
         )
         (tmp_path / "prose.md").write_text(
-            "## TTS Metadata\n\nUnexpected prose.\n\n```yaml\ntts:\n  kind: guide\n  maturity: baseline\n  summary: \"Guide.\"\n```\n"
+            "## TTS Metadata\n\nUnexpected prose.\n\n```yaml\ntts:\n  kind: procedure\n  maturity: baseline\n  summary: \"Guide.\"\n```\n"
         )
         (tmp_path / "mismatch.md").write_text(
-            "## TTS Metadata\n\n```yaml\ntts:\n  kind: guide\n  maturity: baseline\n  summary: \"Guide.\"\n~~~\n"
+            "## TTS Metadata\n\n```yaml\ntts:\n  kind: procedure\n  maturity: baseline\n  summary: \"Guide.\"\n~~~\n"
         )
 
         findings = MarkdownMetadataValidator(tmp_path).validate()
@@ -147,6 +147,30 @@ class TestMarkdownMetadataValidator:
             )
             for path in ("prose.md", "unclosed.md")
         )
+
+    def test_kind_catalog_is_complete_and_cli_lookup_is_stable(self) -> None:
+        """The CLI exposes the canonical kind names and definitions."""
+        expected = {
+            "standard",
+            "procedure",
+            "agent_skill",
+            "reference",
+            "training",
+            "repository",
+            "glossary",
+            "roadmap",
+            "decision_record",
+            "incidental",
+        }
+
+        result = CliRunner().invoke(app, ["kinds", "--json-output"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload["version"] == "1.0"
+        assert {kind["name"] for kind in payload["kinds"]} == expected
+        assert {kind["name"] for kind in payload["kinds"]} == set(DOCUMENT_KINDS)
+        assert all(kind["description"] for kind in payload["kinds"])
 
     def test_cli_exposes_metadata_findings_through_analysis_result(self, tmp_path: Path) -> None:
         """The metadata report uses the shared versioned result envelope.

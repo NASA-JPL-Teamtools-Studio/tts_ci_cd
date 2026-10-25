@@ -41,15 +41,20 @@ The initial universal fields are:
 
 ## Document kinds
 
-The initial `kind` vocabulary is:
+A document's `kind` identifies its primary job in the documentation corpus. Audience and filesystem location do not determine the kind.
 
-- `standard` — a normative convention or policy;
-- `guide` — procedural or explanatory instruction;
-- `reference` — factual material consulted while working;
-- `repository` — documentation about a repository or library;
-- `glossary` — definitions and terminology;
-- `roadmap` — planned or proposed future work; and
-- `incidental` — material in scope for inventory but not intended to define a standard.
+- `standard` — defines rules, constraints, policies, or required conventions;
+- `procedure` — explains how a human performs a task or follows a workflow;
+- `agent_skill` — provides an agent-executable playbook with invocation metadata, steps, guardrails, and completion criteria;
+- `reference` — provides factual or lookup-oriented information without primarily prescribing behavior;
+- `training` — builds knowledge or skill through structured learning material, exercises, or assessment;
+- `repository` — orients readers to a repository's purpose, layout, audience, workflow, and entry points;
+- `glossary` — defines domain terms and distinguishes overloaded or commonly confused meanings;
+- `roadmap` — describes intended future work, sequencing, priorities, or planned capabilities;
+- `decision_record` — records an architectural or governance decision, including context, alternatives, consequences, and status; and
+- `incidental` — is in scope for inventory but is not intended to be maintained as a documentation artifact.
+
+Use `standard` for normative rules, `procedure` for human-facing instructions, `agent_skill` for structured playbooks agents execute, and `training` for material designed to teach through progression, exercises, or assessment. Use `reference` for lookup-oriented facts without a learning progression. ADRs use `decision_record`, including superseded or retired ADRs. Use `incidental` sparingly; it must not be used to avoid classifying useful documentation.
 
 ## Documentation maturity
 

@@ -12,6 +12,7 @@ _FOCUSED = {
     "links": _SKILL_ROOT / "link_grooming.md",
     "policy": _SKILL_ROOT / "policy_sync.md",
     "validation": _SKILL_ROOT / "documentation_validation.md",
+    "tts_ctx_quality": _SKILL_ROOT / "tts_ctx_quality.md",
 }
 
 

@@ -88,7 +88,7 @@ class RepositoryAnalysisResult:
         self,
         scope: str,
         standards_revision: str,
-        metrics: Mapping[str, int],
+        metrics: Mapping[str, Union[int, float]],
         findings: Iterable[AnalysisFinding] = (),
         version: str = ANALYSIS_RESULT_VERSION,
     ) -> None:

@@ -67,7 +67,10 @@ tts-ctx section docs/guide.md install --repository /path/to/repository
 tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repository
 tts-ctx doc-search metadata --repository /path/to/repository
 tts-ctx metadata /path/to/repository --json-output
+tts-ctx kinds
 tts-ctx quality /path/to/repository --json-output
+tts-ctx test-quality /path/to/repository --json-output
+tts-ctx kinds --json-output
 tts-ctx metadata-pilot /path/to/workspace --json-output
 tts-ctx context-validate progressive.json exhaustive.json --json-output
 ```

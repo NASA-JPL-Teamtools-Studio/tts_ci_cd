@@ -10,6 +10,8 @@ from tts_ci_cd.ctx.config import get_db_path, get_knowledge_dir
 from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
 from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
 from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
+from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS
+from tts_ci_cd.ctx.test_quality import TestQualityAnalyzer
 from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
 from tts_ci_cd.ctx.context_validation import (
     DEFAULT_QUESTION_SET,
@@ -17,6 +19,18 @@ from tts_ci_cd.ctx.context_validation import (
     ContextValidator,
     ValidationQuestionSet,
 )
+
+def run_kinds(as_json: bool = False) -> None:
+    """List the document-kind taxonomy used by Markdown metadata."""
+    kinds = [{"name": name, "description": description} for name, description in sorted(DOCUMENT_KINDS.items())]
+    payload = {"version": "1.0", "kinds": kinds}
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# TTS document kinds\n")
+    for kind in kinds:
+        print("- `{}` — {}".format(kind["name"], kind["description"]))
+
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -302,6 +316,20 @@ def run_quality(repository: str, standards_revision: str, as_json: bool = False)
         as_json: Whether to render the result as JSON instead of Markdown.
     """
     result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_test_quality(
+    repository: str,
+    coverage_path: Optional[str] = None,
+    run_tests: bool = False,
+    test_command: Optional[List[str]] = None,
+    as_json: bool = False,
+) -> None:
+    """Run deterministic test-quality analysis through the shared result seam."""
+    result = TestQualityAnalyzer(repository, coverage_path=coverage_path).analyze(
+        run_tests=run_tests, test_command=test_command
+    )
     print(result.to_json() if as_json else render_markdown(result), end="")
 
 

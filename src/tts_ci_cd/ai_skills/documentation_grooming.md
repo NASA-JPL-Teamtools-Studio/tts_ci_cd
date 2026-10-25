@@ -14,6 +14,7 @@ Choose one focused workflow and read it before acting:
 - `link_grooming.md` — local link discovery, deterministic resolution, and external-link reporting.
 - `policy_sync.md` — compare policy identifiers and explanatory Markdown with the central standard.
 - `documentation_validation.md` — run deterministic validation and assemble evidence for human review.
+- `tts_ctx_quality.md` — run `tts-ctx quality`, separate deterministic findings from inference-space judgments, and propose candidate extraction tickets.
 
 If the request spans branches, run them one at a time and preserve each branch's evidence.
 

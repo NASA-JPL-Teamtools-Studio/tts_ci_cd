@@ -19,7 +19,7 @@ class TestMarkdownTraversal:
         (tmp_path / "guide.md").write_text(
             "# Guide\n\nThis guide introduces setup.\n\n## Install\n\nRun setup.\n\n### Details\n\nMore setup.\n\n"
             "[Local](reference.md#target) [External](https://example.com/docs)\n\n"
-            "## TTS Metadata\n\n```yaml\ntts:\n  kind: guide\n```\n"
+            "## TTS Metadata\n\n```yaml\ntts:\n  kind: procedure\n```\n"
         )
         (tmp_path / "reference.md").write_text("# Reference\n\n## Target\n\nReference text.\n")
         return MarkdownTraversal(MarkdownResourceCatalog(tmp_path, "test-v1"))
@@ -91,7 +91,7 @@ class TestMarkdownTraversal:
         """Metadata fields and link-only matches are classified by surface."""
         traversal = self._traversal(tmp_path)
 
-        metadata = traversal.search("kind: guide")
+        metadata = traversal.search("kind: procedure")
         link_only = traversal.search("example.com")
         prose_with_link = traversal.search("Local")
 
