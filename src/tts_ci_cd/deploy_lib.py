@@ -9,8 +9,11 @@ import click
 import yaml
 import tomllib
 from build import ProjectBuilder
+from setuptools_scm import get_version
 from twine.commands.upload import upload as twine_upload
 from twine.settings import Settings
+
+from tts_ci_cd.native_artifacts import NativeArtifactBuilder, NativeArtifactManifest
 
 # Configuration Constants
 CONFIG_PATH = Path.home() / ".tts_config/deploy_locations.yaml"
@@ -43,33 +46,59 @@ def load_global_config():
     return {}
 
 def load_project_info():
-    """Reads project name and version from pyproject.toml."""
-    if not Path("pyproject.toml").exists():
+    """Read project name and version from pyproject.toml."""
+    project_file = Path("pyproject.toml")
+    if not project_file.exists():
         raise click.ClickException("pyproject.toml not found in current directory.")
-        
-    with open("pyproject.toml", "rb") as f:
+
+    with project_file.open("rb") as f:
         pyproject = tomllib.load(f)
-    
+
     project = pyproject.get("project", {})
     name = project.get("name", "unknown-package")
-    version = project.get("version", "unknown-version")
+    version = project.get("version")
+    if version is None and "version" in project.get("dynamic", []):
+        try:
+            version = get_version(root=str(project_file.parent))
+        except LookupError as error:
+            raise click.ClickException("Unable to determine the project version from source control.") from error
+    if version is None:
+        raise click.ClickException("pyproject.toml does not define a project version.")
     return name, version
 
-def build_package():
+def build_package(project_dir=Path(".")):
     """Builds the package using the 'build' library API."""
-    dist_path = Path("dist")
+    project_dir = Path(project_dir)
+    dist_path = project_dir / "dist"
     if dist_path.exists():
         shutil.rmtree(dist_path)
     
     click.echo("📦 Building package (sdist and wheel)...")
     try:
-        builder = ProjectBuilder(".")
-        builder.build("sdist", "dist")
-        builder.build("wheel", "dist")
+        builder = ProjectBuilder(str(project_dir))
+        builder.build("sdist", str(dist_path))
+        builder.build("wheel", str(dist_path))
+        return [path for path in dist_path.iterdir() if path.is_file()]
     except Exception as e:
         raise click.ClickException(f"Build failed: {e}")
 
-def upload_package(repo_url: str, is_pypi: bool = False, username=None, password=None, verbose=False):
+def build_release_artifacts(manifest_path=None):
+    """Build the wrapper and native packages declared by a manifest."""
+    artifacts = build_package()
+    if manifest_path is None:
+        return artifacts
+
+    manifest = NativeArtifactManifest.load(Path(manifest_path))
+    builder = NativeArtifactBuilder()
+    projects = []
+    for spec in manifest.builds:
+        builder.build(manifest, spec)
+        projects.append(manifest.path.parent / spec.package.project)
+    for project in projects:
+        artifacts.extend(build_package(project))
+    return artifacts
+
+def upload_package(repo_url: str, is_pypi: bool = False, username=None, password=None, verbose=False, dist_files=None):
     """Uses Twine's Python API to upload."""
     config = load_global_config()
     auth_defaults = config.get("auth", {})
@@ -84,7 +113,10 @@ def upload_package(repo_url: str, is_pypi: bool = False, username=None, password
     if not password:
         raise click.ClickException("No password or token provided.")
 
-    dist_files = [str(p) for p in Path("dist").glob("*") if p.is_file()]
+    if dist_files is None:
+        dist_files = [str(p) for p in Path("dist").glob("*") if p.is_file()]
+    else:
+        dist_files = [str(path) for path in dist_files]
     click.echo(f"🚀 Uploading to {repo_url} as {username}...")
 
     # Set verbose logging if requested
@@ -111,7 +143,12 @@ def upload_package(repo_url: str, is_pypi: bool = False, username=None, password
 @click.option("--yes", is_flag=True, help="Skip confirmation prompts.")
 @click.option("--force", is_flag=True, help="Allow deployment even if git is dirty.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output for build and upload.")
-def main(environment, yes, force, verbose):
+@click.option(
+    "--native-manifest",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Build native artifacts declared by a TTS build manifest.",
+)
+def main(environment, yes, force, verbose, native_manifest):
     """Deployer for Artifactory and PyPI with Git safety checks."""
     config = load_global_config()
     artifactory_urls = config.get("artifactory", {})
@@ -132,23 +169,34 @@ def main(environment, yes, force, verbose):
     # --- 2. Deployment Logic ---
     if environment == "pypi":
         if yes or click.confirm(f"🚀 OFFICIAL PUBLIC RELEASE: {name} v{version}. Proceed?"):
-            build_package()
-            upload_package(PYPI_URL, is_pypi=True, verbose=verbose)
+            artifacts = build_release_artifacts(native_manifest)
+            upload_package(
+                PYPI_URL,
+                is_pypi=True,
+                verbose=verbose,
+                dist_files=artifacts,
+            )
 
     elif environment == "all" and artifactory_urls:
         auth_defaults = config.get("auth", {})
         user = os.getenv("ARTIFACTORY_USERNAME") or auth_defaults.get("artifactory_username") or click.prompt("🔐 Username")
         pwd = os.getenv("ARTIFACTORY_PASSWORD") or auth_defaults.get("artifactory_password") or click.prompt("🔐 Password", hide_input=True)
         
-        build_package() 
+        artifacts = build_release_artifacts(native_manifest)
         for env_name, url in artifactory_urls.items():
             click.echo(f"\n--- {env_name} ---")
-            upload_package(url, username=user, password=pwd, verbose=verbose)
+            upload_package(
+                url,
+                username=user,
+                password=pwd,
+                verbose=verbose,
+                dist_files=artifacts,
+            )
 
     elif environment in artifactory_urls:
         url = artifactory_urls[environment]
-        build_package()
-        upload_package(url, verbose=verbose)
+        artifacts = build_release_artifacts(native_manifest)
+        upload_package(url, verbose=verbose, dist_files=artifacts)
         click.echo(f"✅ Deployment to {environment} successful.")
 
     else:

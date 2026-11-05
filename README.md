@@ -33,6 +33,57 @@ A number of command line tools are provided in this library.
 * *tts-dev-setup*: Clones, editably installs, and runs unit tests for any TTS library and its TTS dependencies (or all of them). Bootstrap to get a new development environment set up within ~5 minutes.
 * *tts-doc-builder*: Builds `gh-pages` branch by checking out each active branch and every tag in the repo (except those configured to be ignored). Builds landing page for repo docs. Deploys to gh
 * *tts-deploy-lib*: Deploys library to pypi or artifactory.
+* *tts-ctx*: Analyzes a repository through a versioned result seam and renders a
+  human-readable report or stable JSON for CI and agent integrations.
+
+### Repository analysis
+
+Use the Python seam when embedding analysis in another tool:
+
+```python
+from tts_ci_cd.ctx.analysis import analyze_repository
+
+result = analyze_repository("/path/to/repository")
+print(result.to_json())
+```
+
+Packaged standards and arbitrary Markdown resources are available without network access:
+
+```python
+from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
+
+catalog = MarkdownResourceCatalog()
+standard = catalog.read_standard()
+print(standard.revision, standard.text)
+```
+
+The CLI exposes the same result contract:
+
+```bash
+tts-ctx analyze /path/to/repository --json-output
+tts-ctx tree /path/to/repository
+tts-ctx outline docs/guide.md --repository /path/to/repository --depth 2
+tts-ctx section docs/guide.md install --repository /path/to/repository
+tts-ctx follow docs/guide.md reference.md#target --repository /path/to/repository
+tts-ctx doc-search metadata --repository /path/to/repository
+tts-ctx metadata /path/to/repository --json-output
+tts-ctx metadata-repair /path/to/repository --json-output
+tts-ctx kinds
+tts-ctx pilot /path/to/workspace --json-output
+tts-ctx standards --json-output
+tts-ctx quality /path/to/repository --json-output
+tts-ctx quality /path/to/workspace --scope workspace --json-output
+tts-ctx quality /path/to/repository --scope related --json-output
+tts-ctx coverage /path/to/repository --json-output
+tts-ctx next /path/to/repository --json-output
+tts-ctx check /path/to/repository --strict --json-output
+tts-ctx test-quality /path/to/repository --json-output
+tts-ctx kinds --json-output
+tts-ctx metadata-pilot /path/to/workspace --json-output
+tts-ctx context-validate progressive.json exhaustive.json --json-output
+```
+
+Context snapshot inputs contain `scope`, `structural_facts`, `answers`, and `evidence`, with optional `missing_context`, `contradictions`, and `traversal_gaps` arrays. Use `--repository <key>` and `--question-set <json>` to select versioned repository-specific questions. Invalid snapshot or question-set files return a nonzero CLI status with the expected shape.
 
 ## Configuration
 
