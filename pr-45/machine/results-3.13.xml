@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="65" time="2.679" timestamp="2026-11-05T23:33:20.908004+00:00" hostname="runnervm7aw5e"><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_workspace_and_related_scopes_preserve_repository_identity" time="0.013" /><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_missing_scope_is_source_located_and_deterministic" time="0.001" /><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_workspace_excludes_unrelated_git_checkouts" time="0.004" /><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_related_scope_reaches_fixed_point_without_basename_matching" time="0.007" /><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_named_repository_scope_reports_missing_paths_through_cli" time="0.008" /><testcase classname="test.test_aggregation.TestQualityAggregation" name="test_cli_accepts_explicit_workspace_scope" time="0.009" /><testcase classname="test.test_analysis.TestRepositoryAnalysis" name="test_returns_versioned_result_with_stable_json" time="0.005" /><testcase classname="test.test_analysis.TestRepositoryAnalysis" name="test_markdown_report_is_a_cli_facing_integration" time="0.001" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_equivalent_context_requires_exact_structure_and_evidence_overlap" time="0.000" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_divergent_context_reports_structure_and_answer_evidence" time="0.000" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_scope_gaps_and_missing_answers_are_indeterminate" time="0.000" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_invalid_snapshot_cli_failure_is_actionable" time="0.007" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_exact_structure_distinguishes_missing_and_none" time="0.000" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_divergent_answers_still_report_evidence_gaps" time="0.000" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_repository_question_set_can_be_loaded_by_cli" time="0.006" /><testcase classname="test.test_context_validation.TestContextValidation" name="test_missing_context_is_indeterminate_and_cli_is_versioned" time="0.006" /><testcase classname="test.test_documentation_quality.TestDocumentationQualityAnalyzer" name="test_reports_public_api_and_markdown_quality_findings" time="0.004" /><testcase classname="test.test_documentation_quality.TestDocumentationQualityAnalyzer" name="test_reports_nested_public_definitions" time="0.001" /><testcase classname="test.test_documentation_quality.TestDocumentationQualityAnalyzer" name="test_quality_cli_uses_shared_result_contract" time="0.007" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_valid_metadata_has_no_findings_and_related_is_local" time="0.004" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_missing_metadata_is_actionable_and_source_located" time="0.001" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_duplicate_malformed_and_semantically_invalid_metadata_are_distinct" time="0.001" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_invalid_values_and_related_paths_are_reported_without_mutation" time="0.004" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_structural_failure_does_not_emit_semantic_findings" time="0.001" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_unclosed_or_extra_metadata_content_is_malformed" time="0.001" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_kind_catalog_is_complete_and_cli_lookup_is_stable" time="0.006" /><testcase classname="test.test_metadata.TestMarkdownMetadataValidator" name="test_cli_exposes_metadata_findings_through_analysis_result" time="0.007" /><testcase classname="test.test_metadata_pilot.TestMetadataPilot" name="test_report_covers_named_scopes_and_preserves_existing_changes" time="0.027" /><testcase classname="test.test_metadata_pilot.TestMetadataPilot" name="test_non_git_target_is_not_reported_as_validated" time="0.001" /><testcase classname="test.test_metadata_pilot.TestMetadataPilot" name="test_cli_pilot_returns_stable_json" time="0.006" /><testcase classname="test.test_metadata_repair.TestMetadataRepairEngine" name="test_plan_is_dry_run_and_repairs_only_known_kind_aliases" time="0.003" /><testcase classname="test.test_metadata_repair.TestMetadataRepairEngine" name="test_apply_requires_confirmation_and_preserves_dirty_boundary" time="0.041" /><testcase classname="test.test_metadata_repair.TestMetadataRepairEngine" name="test_cli_returns_versioned_repair_plan" time="0.007" /><testcase classname="test.test_native_artifacts" name="test_manifest_loads_source_and_build_matrix" time="0.002" /><testcase classname="test.test_native_artifacts" name="test_manifest_rejects_build_without_immutable_source_ref" time="0.001" /><testcase classname="test.test_pilot.TestPilotVerification" name="test_report_preserves_dirty_boundary_and_remaining_gaps" time="0.069" /><testcase classname="test.test_pilot.TestPilotVerification" name="test_cli_returns_versioned_pilot_report" time="0.007" /><testcase classname="test.test_quality_commands.TestQualityCommands" name="test_quality_combines_documentation_and_test_metrics" time="0.008" /><testcase classname="test.test_quality_commands.TestQualityCommands" name="test_standards_and_coverage_are_versioned_reports" time="0.011" /><testcase classname="test.test_quality_commands.TestQualityCommands" name="test_next_ranks_findings_and_check_has_explicit_strict_mode" time="0.018" /><testcase classname="test.test_quality_commands.TestQualityCommands" name="test_result_rejects_unsupported_versions_and_empty_revisions" time="0.001" /><testcase classname="test.test_resources.TestMarkdownResourceCatalog" name="test_exposes_packaged_standard_and_revision" time="0.001" /><testcase classname="test.test_resources.TestMarkdownResourceCatalog" name="test_reads_relative_documents_deterministically" time="0.001" /><testcase classname="test.test_resources.TestMarkdownResourceCatalog" name="test_rejects_missing_and_outside_documents" time="0.001" /><testcase classname="test.test_skills.TestDocumentationGroomingSkills" name="test_router_and_focused_skills_are_packaged" time="0.001" /><testcase classname="test.test_skills.TestDocumentationGroomingSkills" name="test_router_names_each_workflow_and_guardrails" time="0.000" /><testcase classname="test.test_skills.TestDocumentationGroomingSkills" name="test_built_package_exposes_skills_outside_source_checkout" time="0.086"><failure message="subprocess.CalledProcessError: Command '['/opt/hostedtoolcache/Python/3.13.18/x64/bin/python', '-m', 'build', '--wheel', '--outdir', '/tmp/pytest-of-runner/pytest-0/test_built_package_exposes_ski0/wheel', '--no-isolation']' returned non-zero exit status 1.">self = &lt;test_skills.TestDocumentationGroomingSkills object at 0x7febd041e8b0&gt;
+tmp_path = PosixPath('/tmp/pytest-of-runner/pytest-0/test_built_package_exposes_ski0')
+
+    def test_built_package_exposes_skills_outside_source_checkout(self, tmp_path: Path) -&gt; None:
+        """A built wheel exposes the router and focused skills after installation."""
+        wheel_dir = tmp_path / "wheel"
+        install_dir = tmp_path / "installed"
+        wheel_dir.mkdir()
+        install_dir.mkdir()
+        repository = Path(__file__).parents[3]
+        build_environment = dict(os.environ)
+        utilities_source = Path(__file__).parents[4] / "tts_utilities" / "src"
+        build_environment["PYTHONPATH"] = os.pathsep.join(
+            part for part in (str(utilities_source), build_environment.get("PYTHONPATH")) if part
+        )
+&gt;       subprocess.run(
+            [sys.executable, "-m", "build", "--wheel", "--outdir", str(wheel_dir), "--no-isolation"],
+            cwd=str(repository),
+            env=build_environment,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+/opt/hostedtoolcache/Python/3.13.18/x64/lib/python3.13/site-packages/tts_ci_cd/test/test_skills.py:59: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/hostedtoolcache/Python/3.13.18/x64/bin/python', '-m', 'build', '--wheel', '--outdir', '/tmp/pytest-of-runner/pytest-0/test_built_package_exposes_ski0/wheel', ...],)
+kwargs = {'cwd': '/opt/hostedtoolcache/Python/3.13.18/x64/lib/python3.13', 'env': {'SHELL': '/bin/bash', 'SELENIUM_JAR_PATH': '... '/usr/share/miniconda', 'GITHUB_WORKSPACE': '/home/runner/work/tts_ci_cd/tts_ci_cd', ...}, 'stdout': -1, 'stderr': -2}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output &amp; stderr attributes if those streams
+        were captured.
+    
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+&gt;               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/hostedtoolcache/Python/3.13.18/x64/bin/python', '-m', 'build', '--wheel', '--outdir', '/tmp/pytest-of-runner/pytest-0/test_built_package_exposes_ski0/wheel', '--no-isolation']' returned non-zero exit status 1.
+
+/opt/hostedtoolcache/Python/3.13.18/x64/lib/python3.13/subprocess.py:578: CalledProcessError</failure></testcase><testcase classname="test.test_skills.TestDocumentationGroomingSkills" name="test_focused_workflows_are_independently_invocable" time="0.001" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_reports_inventory_markers_and_inspection_certification" time="0.003" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_reports_coverage_artifact_states" time="0.036" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_opt_in_test_command_runs_only_when_requested" time="0.015" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_consumes_sqlite_coverage_artifact_without_running_tests" time="0.045" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_requires_a_sidecar_for_the_specific_inspection_artifact" time="0.003" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_counts_each_skipped_and_xfailed_test_case" time="0.002" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_symbol_evidence_ignores_comments_and_strings" time="0.002" /><testcase classname="test.test_test_quality.TestTestQualityAnalyzer" name="test_cli_exposes_test_quality_as_shared_versioned_result" time="0.006" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_tree_and_outline_follow_heading_depth" time="0.002" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_section_read_and_links_are_progressive" time="0.001" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_cli_exposes_outline_contract" time="0.007" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_search_includes_text_headings_metadata_and_links" time="0.001" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_search_classifies_metadata_and_links_precisely" time="0.002" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_fragment_only_links_resolve_against_the_source_document" time="0.001" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_results_carry_revision_and_versioned_cli_envelope" time="0.007" /><testcase classname="test.test_traversal.TestMarkdownTraversal" name="test_read_does_not_append_extra_newline" time="0.006" /><testcase classname="test.test_trivial" name="test_trivial" time="0.000" /></testsuite></testsuites>

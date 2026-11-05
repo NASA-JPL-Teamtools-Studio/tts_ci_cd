@@ -1,0 +1,113 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="bandit" tests="37"><testcase classname="src/tts_ci_cd/build_sphinx_docs.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/build_sphinx_docs.py:4</error></testcase><testcase classname="src/tts_ci_cd/build_sphinx_docs.py" name="try_except_pass"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b110_try_except_pass.html" type="LOW" message="Try, Except, Pass detected.">Test ID: B110 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Try, Except, Pass detected.
+Location src/tts_ci_cd/build_sphinx_docs.py:218</error></testcase><testcase classname="src/tts_ci_cd/build_sphinx_docs.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/build_sphinx_docs.py:305</error></testcase><testcase classname="src/tts_ci_cd/build_sphinx_docs.py" name="subprocess_popen_with_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b602_subprocess_popen_with_shell_equals_true.html" type="HIGH" message="subprocess call with shell=True identified, security issue.">Test ID: B602 Severity: HIGH Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call with shell=True identified, security issue.
+Location src/tts_ci_cd/build_sphinx_docs.py:394</error></testcase><testcase classname="src/tts_ci_cd/demosat_dev_setup.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/demosat_dev_setup.py:13</error></testcase><testcase classname="src/tts_ci_cd/demosat_dev_setup.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/demosat_dev_setup.py:142</error></testcase><testcase classname="src/tts_ci_cd/demosat_dev_setup.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/demosat_dev_setup.py:205</error></testcase><testcase classname="src/tts_ci_cd/deploy_lib.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/deploy_lib.py:4</error></testcase><testcase classname="src/tts_ci_cd/deploy_lib.py" name="start_process_with_partial_path"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b607_start_process_with_partial_path.html" type="LOW" message="Starting a process with a partial executable path">Test ID: B607 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Starting a process with a partial executable path
+Location src/tts_ci_cd/deploy_lib.py:22</error></testcase><testcase classname="src/tts_ci_cd/deploy_lib.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/deploy_lib.py:22</error></testcase><testcase classname="src/tts_ci_cd/dev_setup.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/dev_setup.py:2</error></testcase><testcase classname="src/tts_ci_cd/dev_setup.py" name="start_process_with_partial_path"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b607_start_process_with_partial_path.html" type="LOW" message="Starting a process with a partial executable path">Test ID: B607 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Starting a process with a partial executable path
+Location src/tts_ci_cd/dev_setup.py:167</error></testcase><testcase classname="src/tts_ci_cd/dev_setup.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/dev_setup.py:167</error></testcase><testcase classname="src/tts_ci_cd/dev_setup.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/dev_setup.py:200</error></testcase><testcase classname="src/tts_ci_cd/dev_setup.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/dev_setup.py:263</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/doc_builder.py:11</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/doc_builder.py:158</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="hardcoded_sql_expressions"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b608_hardcoded_sql_expressions.html" type="MEDIUM" message="Possible SQL injection vector through string-based query construction.">Test ID: B608 Severity: MEDIUM Confidence: LOW
+CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+Possible SQL injection vector through string-based query construction.
+Location src/tts_ci_cd/doc_builder.py:253</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="set_bad_file_permissions"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b103_set_bad_file_permissions.html" type="MEDIUM" message="Chmod setting a permissive mask 0o755 on file (setup_script_path).">Test ID: B103 Severity: MEDIUM Confidence: HIGH
+CWE: CWE-732 (https://cwe.mitre.org/data/definitions/732.html)
+Chmod setting a permissive mask 0o755 on file (setup_script_path).
+Location src/tts_ci_cd/doc_builder.py:427</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/doc_builder.py:508</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="start_process_with_partial_path"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b607_start_process_with_partial_path.html" type="LOW" message="Starting a process with a partial executable path">Test ID: B607 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Starting a process with a partial executable path
+Location src/tts_ci_cd/doc_builder.py:511</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/doc_builder.py:511</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="try_except_pass"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b110_try_except_pass.html" type="LOW" message="Try, Except, Pass detected.">Test ID: B110 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Try, Except, Pass detected.
+Location src/tts_ci_cd/doc_builder.py:538</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/doc_builder.py:551</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="start_process_with_partial_path"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b607_start_process_with_partial_path.html" type="LOW" message="Starting a process with a partial executable path">Test ID: B607 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Starting a process with a partial executable path
+Location src/tts_ci_cd/doc_builder.py:553</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/doc_builder.py:553</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="try_except_pass"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b110_try_except_pass.html" type="LOW" message="Try, Except, Pass detected.">Test ID: B110 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Try, Except, Pass detected.
+Location src/tts_ci_cd/doc_builder.py:572</error></testcase><testcase classname="src/tts_ci_cd/doc_builder.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/doc_builder.py:619</error></testcase><testcase classname="src/tts_ci_cd/git_dashboard.py" name="blacklist"><error more_info="https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess" type="LOW" message="Consider possible security implications associated with the subprocess module.">Test ID: B404 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+Consider possible security implications associated with the subprocess module.
+Location src/tts_ci_cd/git_dashboard.py:4</error></testcase><testcase classname="src/tts_ci_cd/git_dashboard.py" name="subprocess_without_shell_equals_true"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b603_subprocess_without_shell_equals_true.html" type="LOW" message="subprocess call - check for execution of untrusted input.">Test ID: B603 Severity: LOW Confidence: HIGH
+CWE: CWE-78 (https://cwe.mitre.org/data/definitions/78.html)
+subprocess call - check for execution of untrusted input.
+Location src/tts_ci_cd/git_dashboard.py:99</error></testcase><testcase classname="src/tts_ci_cd/git_dashboard.py" name="try_except_pass"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b110_try_except_pass.html" type="LOW" message="Try, Except, Pass detected.">Test ID: B110 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Try, Except, Pass detected.
+Location src/tts_ci_cd/git_dashboard.py:139</error></testcase><testcase classname="src/tts_ci_cd/run_test_matrix.py" name="tarfile_unsafe_members"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html" type="HIGH" message="tarfile.extractall used without any validation. Please check and discard dangerous members.">Test ID: B202 Severity: HIGH Confidence: HIGH
+CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+tarfile.extractall used without any validation. Please check and discard dangerous members.
+Location src/tts_ci_cd/run_test_matrix.py:280</error></testcase><testcase classname="src/tts_ci_cd/run_test_matrix.py" name="tarfile_unsafe_members"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b202_tarfile_unsafe_members.html" type="HIGH" message="tarfile.extractall used without any validation. Please check and discard dangerous members.">Test ID: B202 Severity: HIGH Confidence: HIGH
+CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+tarfile.extractall used without any validation. Please check and discard dangerous members.
+Location src/tts_ci_cd/run_test_matrix.py:295</error></testcase><testcase classname="src/tts_ci_cd/run_test_matrix.py" name="hardcoded_tmp_directory"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b108_hardcoded_tmp_directory.html" type="MEDIUM" message="Probable insecure usage of temp file/directory.">Test ID: B108 Severity: MEDIUM Confidence: MEDIUM
+CWE: CWE-377 (https://cwe.mitre.org/data/definitions/377.html)
+Probable insecure usage of temp file/directory.
+Location src/tts_ci_cd/run_test_matrix.py:539</error></testcase><testcase classname="src/tts_ci_cd/run_test_matrix.py" name="hardcoded_tmp_directory"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b108_hardcoded_tmp_directory.html" type="MEDIUM" message="Probable insecure usage of temp file/directory.">Test ID: B108 Severity: MEDIUM Confidence: MEDIUM
+CWE: CWE-377 (https://cwe.mitre.org/data/definitions/377.html)
+Probable insecure usage of temp file/directory.
+Location src/tts_ci_cd/run_test_matrix.py:545</error></testcase><testcase classname="src/tts_ci_cd/run_test_matrix.py" name="try_except_pass"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b110_try_except_pass.html" type="LOW" message="Try, Except, Pass detected.">Test ID: B110 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Try, Except, Pass detected.
+Location src/tts_ci_cd/run_test_matrix.py:722</error></testcase><testcase classname="src/tts_ci_cd/test/test_trivial.py" name="assert_used"><error more_info="https://bandit.readthedocs.io/en/1.8.6/plugins/b101_assert_used.html" type="LOW" message="Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.">Test ID: B101 Severity: LOW Confidence: HIGH
+CWE: CWE-703 (https://cwe.mitre.org/data/definitions/703.html)
+Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+Location src/tts_ci_cd/test/test_trivial.py:7</error></testcase></testsuite>
