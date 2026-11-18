@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "revision": "documentation-maintenance-v1",
+  "policy_ids": [
+    "documentation.metadata",
+    "documentation.maturity",
+    "documentation.traversal",
+    "documentation.context_validation",
+    "testing.inventory",
+    "testing.coverage",
+    "testing.certification"
+  ],
+  "thresholds": {
+    "max_error_findings": 0,
+    "max_warning_findings": 0,
+    "minimum_coverage_line_rate": 0.0
+  }
+}

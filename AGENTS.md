@@ -2,6 +2,16 @@
 
 This document tells AI agents how to find skills, documentation, and configuration when working in the `tts_ci_cd` repository.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues for `NASA-JPL-Teamtools-Studio/tts_ci_cd`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+This is a single-context repository: read root `CONTEXT.md` for domain vocabulary and relevant ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+
 ## TTS-wide documentation
 
 Before making decisions that touch broader TTS conventions (testing policy, coding standards, naming, philosophy), read the `teamtools_documentation` repo at `tts_core/teamtools_documentation/` in the workspace. Key files:
@@ -28,6 +38,12 @@ Available skills:
 | Skill file | When to use |
 |------------|-------------|
 | `git_hygiene.md` | Developer wants to review and clean up WIP across multiple repos — finding homeless WIP, branch mismatches, unpushed commits, or semantically incoherent branches. |
+| `documentation_grooming.md` | Developer wants to improve, validate, synchronize, or navigate repository documentation. |
+| `tts_ctx_quality.md` | Developer wants deterministic `tts-ctx` quality evidence, an inference-space boundary, and candidate follow-up extraction tickets. |
+| `metadata_grooming.md` | Developer wants to repair or review visible `TTS Metadata` sections. |
+| `link_grooming.md` | Developer wants to review or repair Markdown links. |
+| `policy_sync.md` | Developer wants to synchronize documentation with central TTS policies. |
+| `documentation_validation.md` | Developer wants deterministic documentation-quality evidence without silent repairs. |
 
 To use a skill: read the `.md` file and follow its steps. Skills are self-contained; each one tells you what CLI tools to call, what to do with the output, and what safeguards to apply.
 

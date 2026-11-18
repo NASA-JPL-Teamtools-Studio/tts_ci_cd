@@ -36,6 +36,10 @@ _Avoid_: "branch cleanliness," "change coherence," "single-purpose"
 A portable Markdown playbook shipped inside the `tts_ci_cd` package at `src/tts_ci_cd/ai_skills/`. AI skills follow the Matt Pocock skill format (YAML frontmatter + structured Markdown instructions) so they can be loaded by any AI toolset (Windsurf, Cursor, Claude, etc.) without toolset-specific plugins. Skills are installed to the user's global AI tool directory by `tts-install-skills`.
 _Avoid_: "AI plugin," "agent script," "LLM prompt," "Windsurf skill" (too toolset-specific)
 
+**Document kind**:
+The primary job a Markdown document performs in a documentation corpus. Canonical kinds are `standard`, `procedure`, `agent_skill`, `reference`, `training`, `repository`, `glossary`, `roadmap`, `decision_record`, and `incidental`. Audience and filesystem location do not determine a document kind; ADRs are `decision_record` documents, structured agent playbooks are `agent_skill` documents, and learning material is `training` documentation.
+_Avoid_: using `guide` as a catch-all kind, or inferring kind only from a document's directory
+
 **Venv manifest**:
 A developer-local YAML file (`.venvs.yaml`) that maps project names to Python interpreter paths. Not committed to any repository after initial template setup. Checked at the workspace root first, then the home directory (`~/.tts_venvs.yaml`), with the workspace file taking precedence. Agents use the venv manifest to select the correct interpreter without asking the developer every time; when the manifest is absent or ambiguous, agents must ask.
 _Avoid_: "venv config," "python path file," "environment file"

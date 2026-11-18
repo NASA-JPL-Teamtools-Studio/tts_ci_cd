@@ -1,12 +1,40 @@
 """Command implementations for tts-ctx."""
-from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from tts_ci_cd.ctx.index_db import IndexDB
 from tts_ci_cd.ctx.config import get_db_path, get_knowledge_dir
+from tts_ci_cd.ctx.analysis import analyze_repository, render_markdown
+from tts_ci_cd.ctx.resources import MarkdownResourceCatalog
+from tts_ci_cd.ctx.traversal import MarkdownTraversal, TraversalResult
+from tts_ci_cd.ctx.metadata import DOCUMENT_KINDS
+from tts_ci_cd.ctx.metadata_repair import MetadataRepairEngine
+from tts_ci_cd.ctx.test_quality import TestQualityAnalyzer
+from tts_ci_cd.ctx.quality import QualityPolicy, combined_quality, coverage_result, ranked_result, threshold_violations
+from tts_ci_cd.ctx.aggregation import analyze_scope
+from tts_ci_cd.ctx.pilot import verify_pilot
+from tts_ci_cd.ctx.metadata_pilot import MetadataPilot
+from tts_ci_cd.ctx.context_validation import (
+    DEFAULT_QUESTION_SET,
+    ContextSnapshot,
+    ContextValidator,
+    ValidationQuestionSet,
+)
+
+def run_kinds(as_json: bool = False) -> None:
+    """List the document-kind taxonomy used by Markdown metadata."""
+    kinds = [{"name": name, "description": description} for name, description in sorted(DOCUMENT_KINDS.items())]
+    payload = {"version": "1.0", "kinds": kinds}
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# TTS document kinds\n")
+    for kind in kinds:
+        print("- `{}` — {}".format(kind["name"], kind["description"]))
+
 
 def run_start_here(db: IndexDB):
     """Render the start_here knowledge card and workspace overview."""
@@ -241,6 +269,321 @@ def run_deps(db: IndexDB, start_repo: str):
             elif dep != start_repo:
                 stack.append((dep, depth + 1, prefix + "  "))
 
+
+
+def run_context_validate(
+    progressive_path: str,
+    exhaustive_path: str,
+    as_json: bool = False,
+    repository: Optional[str] = None,
+    question_set_path: Optional[str] = None,
+) -> None:
+    """Compare progressive and exhaustive JSON context snapshots.
+
+    Args:
+        progressive_path: JSON file containing targeted context evidence.
+        exhaustive_path: JSON file containing complete-scope context evidence.
+        as_json: Whether to render stable JSON instead of Markdown.
+        repository: Optional repository key selecting repository-specific questions.
+        question_set_path: Optional JSON file containing a versioned question set.
+    """
+    with open(progressive_path, "r") as progressive_file:
+        progressive = ContextSnapshot.from_dict(json.load(progressive_file))
+    with open(exhaustive_path, "r") as exhaustive_file:
+        exhaustive = ContextSnapshot.from_dict(json.load(exhaustive_file))
+    questions = DEFAULT_QUESTION_SET
+    if question_set_path:
+        with open(question_set_path, "r") as question_file:
+            questions = ValidationQuestionSet.from_dict(json.load(question_file))
+    result = ContextValidator().compare(
+        progressive, exhaustive, questions, repository=repository
+    )
+    if as_json:
+        print(result.to_json(), end="")
+        return
+    print("# Context validation", "", sep="\n")
+    print("- Classification: `{}`".format(result.classification))
+    print("- Scope: `{}`".format(result.scope))
+    print("- Question set: `{}`".format(result.question_set_version))
+    for finding in result.findings:
+        print("- `{}`: {}".format(finding.code, finding.message))
+        if finding.remediation:
+            print("  - Next step: {}".format(finding.remediation))
+
+
+def run_pilot(workspace: str, as_json: bool = False) -> None:
+    """Verify the representative standards-first pilot without editing files."""
+    report = verify_pilot(Path(workspace).expanduser().resolve())
+    print(report.to_json() if as_json else report.to_markdown(), end="")
+
+
+def run_standards(as_json: bool = False) -> None:
+    """Explain the packaged standards, identifiers, thresholds, and revision."""
+    policy = QualityPolicy.load()
+    payload = policy.to_dict()
+    payload["standards_revision"] = policy.revision
+    payload["standard_path"] = "standards/documentation_maintenance.md"
+    if as_json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# TTS standards\n")
+    print("- Revision: `{}`".format(policy.revision))
+    print("- Standard: `{}`".format(payload["standard_path"]))
+    print("- Policy IDs: {}".format(", ".join(policy.policy_ids)))
+    print("- Thresholds:")
+    for name, value in sorted(policy.thresholds.items()):
+        print("  - {}: {}".format(name, value))
+
+
+def run_scope_quality(
+    scope: str,
+    repository: Optional[str],
+    standards_revision: str,
+    as_json: bool = False,
+) -> None:
+    """Run combined quality analysis over a resolved scope."""
+    result = analyze_scope(scope, repository, standards_revision)
+    if as_json:
+        print(result.to_json(), end="")
+        return
+    print("# Scope quality analysis\n")
+    print("- Scope: `{}`".format(result.scope))
+    print("- Repositories: {}".format(len(result.repositories)))
+    for repository_result in result.repositories:
+        print(render_markdown(repository_result), end="")
+    for finding in result.findings:
+        print("- `{}`: {}".format(finding.code, finding.message))
+
+
+def run_quality(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Run combined documentation-quality and metadata analysis.
+
+    Args:
+        repository: Path to the repository to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
+    result = combined_quality(repository, standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_coverage(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Render coverage-focused documentation and testing metrics."""
+    result = coverage_result(repository, standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_next(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Render ranked actionable findings."""
+    result = ranked_result(repository, standards_revision)
+    if as_json:
+        payload = result.to_dict()
+        payload["ranked_findings"] = [
+            dict(finding, rank=index)
+            for index, finding in enumerate(payload["findings"], 1)
+        ]
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    print("# Ranked next work\n")
+    for index, finding in enumerate(result.findings, 1):
+        print("{}. `{}` {} — {}".format(index, finding.code, finding.path or "scope", finding.remediation or finding.message))
+
+
+def run_check(
+    repository: str,
+    standards_revision: str,
+    strict: bool = False,
+    as_json: bool = False,
+) -> bool:
+    """Render diagnostics and return whether strict policy thresholds are violated."""
+    result = combined_quality(repository, standards_revision)
+    policy = QualityPolicy.load()
+    violations = threshold_violations(result, policy)
+    if as_json:
+        payload = result.to_dict()
+        payload["strict"] = strict
+        payload["threshold_violations"] = list(violations)
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(render_markdown(result), end="")
+        if violations:
+            print("\n## Threshold violations\n")
+            for violation in violations:
+                print("- {}".format(violation))
+    return strict and bool(violations)
+
+
+def run_test_quality(
+    repository: str,
+    coverage_path: Optional[str] = None,
+    run_tests: bool = False,
+    test_command: Optional[List[str]] = None,
+    as_json: bool = False,
+) -> None:
+    """Run deterministic test-quality analysis through the shared result seam."""
+    result = TestQualityAnalyzer(repository, coverage_path=coverage_path).analyze(
+        run_tests=run_tests, test_command=test_command
+    )
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_metadata_repair(repository: str, confirm: bool = False, as_json: bool = False) -> None:
+    """Plan metadata repairs, or apply them only with explicit confirmation."""
+    engine = MetadataRepairEngine(repository)
+    plan = engine.plan()
+    if confirm:
+        result = engine.apply(plan, confirm=True)
+        payload = result.to_dict()
+        print(json.dumps(payload, indent=2, sort_keys=True) if as_json else "Applied {} repairs.\n".format(len(result.generated_changes)), end="" if as_json else "")
+        return
+    print(plan.to_json() if as_json else plan.diff, end="")
+
+
+def run_metadata(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Validate Markdown metadata through the shared analysis seam.
+
+    Args:
+        repository: Path to the repository to validate.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
+    result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def run_analysis(repository: str, standards_revision: str, as_json: bool = False) -> None:
+    """Analyze one repository and render its stable result contract.
+
+    Args:
+        repository: Path to the repository to analyze.
+        standards_revision: Human-readable revision of the applicable standard.
+        as_json: Whether to render the result as JSON instead of Markdown.
+    """
+    result = analyze_repository(repository, standards_revision=standards_revision)
+    print(result.to_json() if as_json else render_markdown(result), end="")
+
+
+def _get_traversal(repository: str) -> MarkdownTraversal:
+    """Create Markdown traversal for a repository path."""
+    return MarkdownTraversal(MarkdownResourceCatalog(Path(repository)))
+
+
+def _print_json(operation: str, repository: str, result: object) -> None:
+    """Print a traversal payload inside the shared versioned envelope."""
+    scope = str(Path(repository).expanduser().resolve())
+    revision = _get_traversal(repository).catalog.standards_revision
+    print(TraversalResult(operation, scope, revision, result).to_json())
+
+
+def run_tree(repository: str, as_json: bool = False) -> None:
+    """Render the Markdown document tree for a repository.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    documents = _get_traversal(repository).tree()
+    if as_json:
+        _print_json("tree", repository, [document.to_dict() for document in documents])
+        return
+    for document in documents:
+        print(document.path)
+
+
+def run_outline(repository: str, path: str, depth: int = 1, as_json: bool = False) -> None:
+    """Render a Markdown page outline at a requested heading depth.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        depth: Maximum Markdown heading level to include.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    headings = _get_traversal(repository).outline(path, depth)
+    if as_json:
+        _print_json("outline", repository, [heading.to_dict() for heading in headings])
+        return
+    for heading in headings:
+        print("{} {} #{}".format("  " * (heading.level - 1), heading.title, heading.anchor))
+
+
+def run_section(repository: str, path: str, selector: str, as_json: bool = False) -> None:
+    """Render one Markdown section.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        selector: Heading title or anchor to select.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    section = _get_traversal(repository).section(path, selector)
+    if as_json:
+        _print_json("section", repository, section.to_dict())
+        return
+    print(section.text)
+
+
+def run_follow(repository: str, source_path: str, target: str, as_json: bool = False) -> None:
+    """Follow a local link or report an external link without fetching it.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        source_path: Markdown path containing the link.
+        target: Link target to resolve.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    link = _get_traversal(repository).follow(source_path, target)
+    if as_json:
+        _print_json("follow", repository, link.to_dict())
+        return
+    if link.external:
+        print("External link (not fetched): {}".format(link.target))
+    else:
+        print(link.document.path)
+        if link.anchor:
+            print("#{}".format(link.anchor))
+
+
+def run_doc_search(repository: str, query: str, as_json: bool = False) -> None:
+    """Search Markdown text, headings, metadata, and links.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        query: Case-insensitive text to locate.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    matches = _get_traversal(repository).search(query)
+    if as_json:
+        _print_json("doc-search", repository, [match.to_dict() for match in matches])
+        return
+    for match in matches:
+        print("{}:{} [{}] {}".format(match.path, match.line, match.kind, match.text))
+
+
+def run_read(repository: str, path: str, as_json: bool = False) -> None:
+    """Read a complete Markdown document.
+
+    Args:
+        repository: Repository or documentation root to inspect.
+        path: Markdown path relative to the repository root.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    document = _get_traversal(repository).read(path)
+    if as_json:
+        _print_json("read", repository, {"path": document.path, "revision": document.revision, "text": document.text})
+        return
+    print(document.text, end="" if document.text.endswith("\n") else "\n")
+
+
+def run_metadata_pilot(workspace: str, as_json: bool = False) -> None:
+    """Report representative metadata migration readiness without editing files.
+
+    Args:
+        workspace: Workspace root containing representative repositories.
+        as_json: Whether to render stable JSON instead of Markdown.
+    """
+    report = MetadataPilot(workspace).report()
+    print(report.to_json() if as_json else report.to_markdown(), end="")
 
 
 def run_index():
