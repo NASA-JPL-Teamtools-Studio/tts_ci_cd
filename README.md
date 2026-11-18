@@ -36,6 +36,13 @@ A number of command line tools are provided in this library.
 * *tts-ctx*: Analyzes a repository through a versioned result seam and renders a
   human-readable report or stable JSON for CI and agent integrations.
 
+Native runtime packages can be built from a declarative
+[`tts-build.toml`](docs/native-artifacts.md) manifest:
+
+```bash
+tts-deploy-lib staging --native-manifest tts-build.toml
+```
+
 ### Repository analysis
 
 Use the Python seam when embedding analysis in another tool:

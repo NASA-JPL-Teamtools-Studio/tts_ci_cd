@@ -7,13 +7,17 @@ from pathlib import Path
 # Installed Dependency Imports
 import click
 import yaml
-import tomllib
 from build import ProjectBuilder
 from setuptools_scm import get_version
 from twine.commands.upload import upload as twine_upload
 from twine.settings import Settings
 
 from tts_ci_cd.native_artifacts import NativeArtifactBuilder, NativeArtifactManifest
+
+try:
+    import tomllib
+except ImportError:  # pragma: no cover - exercised on Python 3.10 and older
+    import tomli as tomllib
 
 # Configuration Constants
 CONFIG_PATH = Path.home() / ".tts_config/deploy_locations.yaml"
@@ -144,12 +148,29 @@ def upload_package(repo_url: str, is_pypi: bool = False, username=None, password
 @click.option("--force", is_flag=True, help="Allow deployment even if git is dirty.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output for build and upload.")
 @click.option(
+    "--build-only",
+    is_flag=True,
+    help="Build and stage native artifacts without deploying them.",
+)
+@click.option(
     "--native-manifest",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     help="Build native artifacts declared by a TTS build manifest.",
 )
-def main(environment, yes, force, verbose, native_manifest):
+def main(environment, yes, force, verbose, build_only, native_manifest):
     """Deployer for Artifactory and PyPI with Git safety checks."""
+    if build_only:
+        if environment:
+            raise click.ClickException("--build-only cannot be combined with an environment.")
+        if native_manifest is None:
+            raise click.ClickException("--build-only requires --native-manifest.")
+        manifest = NativeArtifactManifest.load(native_manifest)
+        builder = NativeArtifactBuilder()
+        for spec in manifest.builds:
+            staging = builder.build(manifest, spec)
+            click.echo(f"Built {spec.id}; staged native files in {staging}")
+        return
+
     config = load_global_config()
     artifactory_urls = config.get("artifactory", {})
     
